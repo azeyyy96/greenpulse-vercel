@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — GreenPulse</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0F2438; --ink-2:#16324A; --paper:#F3F7F6; --card:#FFFFFF;
+    --teal:#1FB8A6; --teal-dim:#E4F5F2; --coral:#E85D4E; --coral-dim:#FCE8E5;
+    --amber:#E8A33D; --amber-dim:#FBF0DE; --cloud:#7C93A3; --line:#E4EBEA; --fieldBg:#FBFDFD;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'IBM Plex Sans',sans-serif;color:var(--ink);background:var(--paper);}
+  h1,h2,.display{font-family:'Space Grotesk',sans-serif;}
+  .num{font-family:'IBM Plex Mono',monospace;}
+
+  header{background:linear-gradient(160deg,var(--ink) 0%,var(--ink-2) 100%);color:#fff;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;}
+  header .brand{display:flex;align-items:center;gap:10px;}
+  header .logo{width:30px;height:30px;border-radius:10px;background:var(--teal);color:var(--ink);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;}
+  header .name{font-size:16px;font-weight:700;}
+  header .tag{font-size:10.5px;color:#9FC3C9;}
+  header button{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;padding:8px 14px;border-radius:10px;cursor:pointer;font-family:inherit;font-weight:600;font-size:12.5px;}
+
+  .wrap{max-width:960px;margin:0 auto;padding:24px 20px 60px;}
+  #gate{max-width:420px;margin:80px auto;text-align:center;padding:0 20px;}
+  #gate p{color:var(--cloud);font-size:13.5px;line-height:1.6;}
+  #app{display:none;}
+
+  .tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;}
+  .tabs button{background:#fff;border:1.5px solid var(--line);color:var(--cloud);padding:9px 16px;border-radius:10px;cursor:pointer;font-family:inherit;font-weight:600;font-size:13px;}
+  .tabs button.active{background:var(--ink);border-color:var(--ink);color:#fff;}
+
+  .panel{display:none;}
+  .panel.active{display:block;}
+
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px;}
+  .card h3{font-size:14px;margin:0 0 12px;}
+  .card .sub{font-size:12px;color:var(--cloud);margin:-8px 0 14px;}
+
+  label{display:block;font-size:11px;font-weight:600;margin:10px 0 4px;}
+  label:first-child{margin-top:0;}
+  input,select{width:100%;padding:9px 11px;border-radius:9px;border:1.4px solid var(--line);font-family:inherit;font-size:13px;background:var(--fieldBg);color:var(--ink);}
+  input:focus,select:focus{outline:none;border-color:var(--teal);}
+  .row{display:grid;gap:10px;}
+  .row2{grid-template-columns:1fr 1fr;}
+  .row3{grid-template-columns:1fr 1fr 1fr;}
+  .row4{grid-template-columns:2fr 2fr 2fr 1fr;}
+
+  .btn{appearance:none;border:none;cursor:pointer;font-family:inherit;font-weight:700;border-radius:10px;padding:10px 16px;font-size:13px;}
+  .btn-primary{background:var(--ink);color:#fff;}
+  .btn-primary:hover{opacity:.9;}
+  .btn-ghost{background:#fff;border:1.4px solid var(--line);color:var(--ink);}
+  .btn-danger{background:var(--coral);color:#fff;}
+  .btn-sm{padding:6px 11px;font-size:11.5px;border-radius:8px;}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th{text-align:left;color:var(--cloud);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:0.3px;padding:8px 6px;border-bottom:1.5px solid var(--line);}
+  td{padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  td.num-col{font-family:'IBM Plex Mono',monospace;}
+  .actions{display:flex;gap:6px;}
+  .table-wrap{max-height:420px;overflow-y:auto;}
+
+  .msg{font-size:12px;margin-top:8px;}
+  .msg.ok{color:var(--teal);}
+  .msg.err{color:var(--coral);}
+  .empty{color:var(--cloud);font-size:12.5px;text-align:center;padding:20px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo">GP</div>
+    <div><div class="name">GreenPulse</div><div class="tag">ADMIN</div></div>
+  </div>
+  <button onclick="doLogout()">Log out</button>
+</header>
+
+<div id="gate">
+  <p id="gateMsg">Checking access…</p>
+</div>
+
+<div id="app" class="wrap">
+  <div class="tabs">
+    <button data-panel="brands" class="active">Brands</button>
+    <button data-panel="models">Models</button>
+    <button data-panel="tariff">Tariff &amp; EEI</button>
+  </div>
+
+  <!-- BRANDS -->
+  <section class="panel active" id="panel-brands">
+    <div class="card">
+      <h3>Add a brand</h3>
+      <div class="row row2">
+        <input id="newBrandName" placeholder="Brand name">
+        <button class="btn btn-primary" onclick="addBrand()">Add brand</button>
+      </div>
+      <div class="msg" id="brandMsg"></div>
+    </div>
+    <div class="card">
+      <h3>All brands</h3>
+      <p class="sub">Deleting a brand also deletes every model under it — you'll be asked to confirm the count first.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Brand</th><th>Models</th><th></th></tr></thead>
+          <tbody id="brandsTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- MODELS -->
+  <section class="panel" id="panel-models">
+    <div class="card">
+      <h3>Add a model</h3>
+      <div class="row row4">
+        <select id="newModelType"></select>
+        <select id="newModelBrand"></select>
+        <input id="newModelName" placeholder="Model name">
+        <input id="newModelWatt" type="number" placeholder="Watt">
+      </div>
+      <button class="btn btn-primary" style="margin-top:10px;" onclick="addModel()">Add model</button>
+      <div class="msg" id="modelAddMsg"></div>
+    </div>
+    <div class="card">
+      <h3>Browse models</h3>
+      <div class="row row2" style="margin-bottom:12px;">
+        <select id="filterType"><option value="">All types</option></select>
+        <select id="filterBrand"><option value="">All brands</option></select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Type</th><th>Brand</th><th>Model</th><th>Watt</th><th></th></tr></thead>
+          <tbody id="modelsTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- TARIFF -->
+  <section class="panel" id="panel-tariff">
+    <div class="card">
+      <h3>Rate structure</h3>
+      <p class="sub">These are the headline TNB-style rates every user's bill is calculated from.</p>
+      <div class="row row3">
+        <div><label>Rate ≤ threshold (sen/kWh)</label><input id="t-rateLow" type="number" step="0.01"></div>
+        <div><label>Rate &gt; threshold (sen/kWh)</label><input id="t-rateHigh" type="number" step="0.01"></div>
+        <div><label>Threshold (kWh)</label><input id="t-threshold" type="number" step="1"></div>
+      </div>
+      <div class="row row3">
+        <div><label>Retail charge (RM)</label><input id="t-retail" type="number" step="0.5"></div>
+        <div><label>Retail waiver (kWh)</label><input id="t-waiver" type="number" step="1"></div>
+        <div><label>Minimum bill (RM)</label><input id="t-min" type="number" step="0.5"></div>
+      </div>
+      <button class="btn btn-primary" style="margin-top:12px;" onclick="saveTariff()">Save rate structure</button>
+      <div class="msg" id="tariffMsg"></div>
+    </div>
+
+    <div class="card">
+      <h3>EEI rebate bands</h3>
+      <p class="sub">Tiered discount by total monthly kWh. Bands should be contiguous and non-overlapping.</p>
+      <div class="row row4" style="margin-bottom:10px;">
+        <input id="newBandMin" type="number" placeholder="Min kWh">
+        <input id="newBandMax" type="number" placeholder="Max kWh">
+        <input id="newBandRebate" type="number" step="0.01" placeholder="Rebate sen/kWh">
+        <button class="btn btn-primary" onclick="addBand()">Add band</button>
+      </div>
+      <div class="msg" id="bandMsg"></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Min kWh</th><th>Max kWh</th><th>Rebate (sen/kWh)</th><th></th></tr></thead>
+          <tbody id="bandsTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+const APPLIANCE_TYPES = [
+  'Air Conditioner','Fan','Refrigerator','Water Heater','Washing Machine',
+  'Laptop / Computer','Rice Cooker','Electric Kettle','Lighting (LED)',
+  'Television','WiFi Router','Other'
+];
+
+let allBrands = [];
+
+async function api(action, opts = {}) {
+  const { method = 'GET', body, query = {} } = opts;
+  const qs = new URLSearchParams({ action, ...query }).toString();
+  const url = method === 'GET' ? `/api/admin?${qs}` : '/api/admin';
+  const res = await fetch(url, {
+    method,
+    credentials: 'include',
+    headers: method === 'GET' ? undefined : { 'Content-Type': 'application/json' },
+    body: method === 'GET' ? undefined : JSON.stringify({ action, ...(body || {}) })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+function showMsg(id, text, ok) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'msg ' + (ok ? 'ok' : 'err');
+}
+
+// ---------------- Access gate ----------------
+(async function checkAccess(){
+  try{
+    const res = await fetch('/api/auth', {credentials:'include'});
+    if(res.status === 401){ window.location.href = 'login.html'; return; }
+    if(!res.ok){ document.getElementById('gateMsg').textContent = "Can't reach the server — try again shortly."; return; }
+    const data = await res.json();
+    if(!data.user || !data.user.is_admin){
+      document.getElementById('gateMsg').innerHTML = "This account doesn't have admin access.<br><br><a href='index.html' style='color:#1FB8A6;font-weight:600;'>Back to the app</a>";
+      return;
+    }
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    init();
+  }catch(e){
+    document.getElementById('gateMsg').textContent = "Can't reach the server — check your connection.";
+  }
+})();
+
+window.doLogout = async function(){
+  try{ await fetch('/api/auth', {method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'logout'})}); }catch(e){}
+  window.location.href = 'login.html';
+};
+
+// ---------------- Tabs ----------------
+document.querySelectorAll('.tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-'+btn.dataset.panel).classList.add('active');
+  });
+});
+
+// ---------------- Init ----------------
+async function init(){
+  APPLIANCE_TYPES.forEach(t=>{
+    document.getElementById('newModelType').appendChild(new Option(t, t));
+    document.getElementById('filterType').appendChild(new Option(t, t));
+  });
+  await refreshBrands();
+  await refreshModels();
+  await refreshTariff();
+
+  document.getElementById('filterType').addEventListener('change', refreshModels);
+  document.getElementById('filterBrand').addEventListener('change', refreshModels);
+}
+
+// ---------------- Brands ----------------
+async function refreshBrands(){
+  const data = await api('listBrands');
+  allBrands = data.brands;
+  const tbody = document.getElementById('brandsTable');
+  tbody.innerHTML = allBrands.length === 0 ? '<tr><td colspan="3" class="empty">No brands yet.</td></tr>' :
+    allBrands.map(b=>`<tr>
+      <td>${b.brand_name}</td>
+      <td class="num-col">${b.model_count}</td>
+      <td class="actions">
+        <button class="btn btn-ghost btn-sm" onclick="renameBrandPrompt(${b.brand_id}, '${b.brand_name.replace(/'/g,"\\'")}')">Rename</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteBrandConfirm(${b.brand_id}, '${b.brand_name.replace(/'/g,"\\'")}', ${b.model_count})">Delete</button>
+      </td>
+    </tr>`).join('');
+
+  const modelBrandSel = document.getElementById('newModelBrand');
+  const filterBrandSel = document.getElementById('filterBrand');
+  const prevModelVal = modelBrandSel.value;
+  const prevFilterVal = filterBrandSel.value;
+  modelBrandSel.innerHTML = '';
+  filterBrandSel.innerHTML = '<option value="">All brands</option>';
+  allBrands.forEach(b=>{
+    modelBrandSel.appendChild(new Option(b.brand_name, b.brand_id));
+    filterBrandSel.appendChild(new Option(b.brand_name, b.brand_id));
+  });
+  if([...modelBrandSel.options].some(o=>o.value===prevModelVal)) modelBrandSel.value = prevModelVal;
+  if([...filterBrandSel.options].some(o=>o.value===prevFilterVal)) filterBrandSel.value = prevFilterVal;
+}
+
+window.addBrand = async function(){
+  const name = document.getElementById('newBrandName').value.trim();
+  if(!name){ showMsg('brandMsg', 'Enter a brand name.', false); return; }
+  try{
+    await api('addBrand', {method:'POST', body:{name}});
+    document.getElementById('newBrandName').value = '';
+    showMsg('brandMsg', 'Brand added.', true);
+    await refreshBrands();
+  }catch(e){ showMsg('brandMsg', e.message, false); }
+};
+
+window.renameBrandPrompt = async function(brandId, currentName){
+  const name = prompt('Rename brand:', currentName);
+  if(!name || name.trim() === currentName) return;
+  try{
+    await api('renameBrand', {method:'POST', body:{brandId, name: name.trim()}});
+    await refreshBrands();
+    await refreshModels();
+  }catch(e){ alert(e.message); }
+};
+
+window.deleteBrandConfirm = async function(brandId, name, modelCount){
+  const warn = modelCount > 0
+    ? `Delete "${name}"? This also permanently deletes all ${modelCount} of its models.`
+    : `Delete "${name}"?`;
+  if(!confirm(warn)) return;
+  try{
+    await api('deleteBrand', {method:'POST', body:{brandId}});
+    await refreshBrands();
+    await refreshModels();
+  }catch(e){ alert(e.message); }
+};
+
+// ---------------- Models ----------------
+async function refreshModels(){
+  const type = document.getElementById('filterType').value;
+  const brandId = document.getElementById('filterBrand').value;
+  const query = {};
+  if(type) query.type = type;
+  if(brandId) query.brandId = brandId;
+  const data = await api('listModels', {query});
+  const tbody = document.getElementById('modelsTable');
+  tbody.innerHTML = data.models.length === 0 ? '<tr><td colspan="5" class="empty">No models match this filter.</td></tr>' :
+    data.models.map(m=>`<tr>
+      <td>${m.appliance_type}</td>
+      <td>${m.brand_name}</td>
+      <td>${m.model_name}</td>
+      <td class="num-col">${m.wattage_w}W</td>
+      <td class="actions">
+        <button class="btn btn-ghost btn-sm" onclick='editModelPrompt(${JSON.stringify(m)})'>Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteModelConfirm(${m.model_id}, '${m.model_name.replace(/'/g,"\\'")}')">Delete</button>
+      </td>
+    </tr>`).join('');
+}
+
+window.addModel = async function(){
+  const type = document.getElementById('newModelType').value;
+  const brandId = document.getElementById('newModelBrand').value;
+  const model = document.getElementById('newModelName').value.trim();
+  const watt = parseFloat(document.getElementById('newModelWatt').value);
+  if(!brandId){ showMsg('modelAddMsg', 'Add a brand first.', false); return; }
+  if(!model || !watt){ showMsg('modelAddMsg', 'Enter a model name and wattage.', false); return; }
+  try{
+    await api('addModel', {method:'POST', body:{brandId: Number(brandId), type, model, watt}});
+    document.getElementById('newModelName').value = '';
+    document.getElementById('newModelWatt').value = '';
+    showMsg('modelAddMsg', 'Model added.', true);
+    await refreshBrands();
+    await refreshModels();
+  }catch(e){ showMsg('modelAddMsg', e.message, false); }
+};
+
+window.editModelPrompt = async function(m){
+  const model = prompt('Model name:', m.model_name);
+  if(model === null) return;
+  const wattStr = prompt('Wattage (W):', m.wattage_w);
+  if(wattStr === null) return;
+  const watt = parseFloat(wattStr);
+  if(!model.trim() || !watt){ alert('Model name and wattage are required.'); return; }
+  try{
+    await api('updateModel', {method:'POST', body:{modelId:m.model_id, brandId:m.brand_id, type:m.appliance_type, model:model.trim(), watt}});
+    await refreshModels();
+  }catch(e){ alert(e.message); }
+};
+
+window.deleteModelConfirm = async function(modelId, name){
+  if(!confirm(`Delete model "${name}"?`)) return;
+  try{
+    await api('deleteModel', {method:'POST', body:{modelId}});
+    await refreshBrands();
+    await refreshModels();
+  }catch(e){ alert(e.message); }
+};
+
+// ---------------- Tariff ----------------
+async function refreshTariff(){
+  const data = await api('getTariff');
+  const s = data.settings;
+  if(s){
+    document.getElementById('t-rateLow').value = s.rate_low_sen;
+    document.getElementById('t-rateHigh').value = s.rate_high_sen;
+    document.getElementById('t-threshold').value = s.rate_threshold_kwh;
+    document.getElementById('t-retail').value = s.retail_charge_rm;
+    document.getElementById('t-waiver').value = s.retail_waiver_kwh;
+    document.getElementById('t-min').value = s.minimum_bill_rm;
+  }
+  const tbody = document.getElementById('bandsTable');
+  tbody.innerHTML = data.eeiBands.map(b=>`<tr>
+    <td class="num-col">${b.min_kwh}</td>
+    <td class="num-col">${b.max_kwh}</td>
+    <td class="num-col">${b.rebate_sen}</td>
+    <td class="actions">
+      <button class="btn btn-ghost btn-sm" onclick='editBandPrompt(${JSON.stringify(b)})'>Edit</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteBandConfirm(${b.id})">Delete</button>
+    </td>
+  </tr>`).join('');
+}
+
+window.saveTariff = async function(){
+  const body = {
+    rateLowSen: parseFloat(document.getElementById('t-rateLow').value),
+    rateHighSen: parseFloat(document.getElementById('t-rateHigh').value),
+    rateThresholdKwh: parseFloat(document.getElementById('t-threshold').value),
+    retailChargeRm: parseFloat(document.getElementById('t-retail').value),
+    retailWaiverKwh: parseFloat(document.getElementById('t-waiver').value),
+    minimumBillRm: parseFloat(document.getElementById('t-min').value)
+  };
+  if(Object.values(body).some(v=>isNaN(v))){ showMsg('tariffMsg', 'All fields are required and must be numbers.', false); return; }
+  try{
+    await api('updateTariff', {method:'POST', body});
+    showMsg('tariffMsg', 'Saved — takes effect for all users within a few minutes (cached for 5 min).', true);
+  }catch(e){ showMsg('tariffMsg', e.message, false); }
+};
+
+window.addBand = async function(){
+  const minKwh = parseFloat(document.getElementById('newBandMin').value);
+  const maxKwh = parseFloat(document.getElementById('newBandMax').value);
+  const rebateSen = parseFloat(document.getElementById('newBandRebate').value);
+  if(isNaN(minKwh) || isNaN(maxKwh) || isNaN(rebateSen)){ showMsg('bandMsg', 'All three fields are required.', false); return; }
+  try{
+    await api('addEeiBand', {method:'POST', body:{minKwh, maxKwh, rebateSen, sortOrder: maxKwh}});
+    document.getElementById('newBandMin').value = '';
+    document.getElementById('newBandMax').value = '';
+    document.getElementById('newBandRebate').value = '';
+    showMsg('bandMsg', 'Band added.', true);
+    await refreshTariff();
+  }catch(e){ showMsg('bandMsg', e.message, false); }
+};
+
+window.editBandPrompt = async function(b){
+  const minStr = prompt('Min kWh:', b.min_kwh); if(minStr === null) return;
+  const maxStr = prompt('Max kWh:', b.max_kwh); if(maxStr === null) return;
+  const rebateStr = prompt('Rebate (sen/kWh):', b.rebate_sen); if(rebateStr === null) return;
+  const minKwh = parseFloat(minStr), maxKwh = parseFloat(maxStr), rebateSen = parseFloat(rebateStr);
+  if(isNaN(minKwh) || isNaN(maxKwh) || isNaN(rebateSen)){ alert('All values must be numbers.'); return; }
+  try{
+    await api('updateEeiBand', {method:'POST', body:{bandId:b.id, minKwh, maxKwh, rebateSen, sortOrder:maxKwh}});
+    await refreshTariff();
+  }catch(e){ alert(e.message); }
+};
+
+window.deleteBandConfirm = async function(bandId){
+  if(!confirm('Delete this EEI band?')) return;
+  try{
+    await api('deleteEeiBand', {method:'POST', body:{bandId}});
+    await refreshTariff();
+  }catch(e){ alert(e.message); }
+};
+</script>
+
+</body>
+</html>

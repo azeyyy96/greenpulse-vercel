@@ -1,0 +1,2904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GreenPulse — Energy Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --ink:#0F2438;
+    --ink-2:#16324A;
+    --paper:#F3F7F6;
+    --card:#FFFFFF;
+    --teal:#1FB8A6;
+    --teal-dim:#E4F5F2;
+    --amber:#E8A33D;
+    --amber-dim:#FBF0DE;
+    --coral:#E85D4E;
+    --coral-dim:#FCE8E5;
+    --cloud:#7C93A3;
+    --line:#E4EBEA;
+    --shadow: 0 20px 60px -20px rgba(15,36,56,0.35);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    min-height:100vh;
+    font-family:'IBM Plex Sans', sans-serif;
+    background:
+      radial-gradient(60% 50% at 15% 0%, rgba(31,184,166,0.16), transparent 60%),
+      radial-gradient(50% 40% at 100% 100%, rgba(232,163,61,0.10), transparent 60%),
+      var(--paper);
+    color:var(--ink);
+    display:flex;
+    justify-content:center;
+    padding:32px 16px;
+  }
+  h1,h2,h3,.display{font-family:'Space Grotesk', sans-serif;}
+  .num{font-family:'IBM Plex Mono', monospace;}
+
+  .shell{
+    width:100%;
+    max-width:430px;
+    background:var(--card);
+    border-radius:32px;
+    box-shadow:var(--shadow);
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    min-height:calc(100vh - 64px);
+    max-height:900px;
+    position:relative;
+  }
+
+  /* ---------- HEADER ---------- */
+  header{
+    background:linear-gradient(160deg, var(--ink) 0%, var(--ink-2) 100%);
+    color:#fff;
+    padding:22px 22px 18px;
+    position:relative;
+    flex-shrink:0;
+  }
+  .brand-row{display:flex;align-items:center;justify-content:space-between;}
+  .wordmark{display:flex;align-items:center;gap:9px;}
+  .logo-pulse{width:30px;height:30px;flex-shrink:0;}
+  .wordmark .name{font-size:19px;font-weight:700;letter-spacing:0.2px;}
+  .tagline{font-size:10px;color:#9FC3C9;letter-spacing:0.6px;text-transform:uppercase;margin-top:1px;}
+  .cycle-chip{font-size:10px;color:#B9CCD4;background:rgba(255,255,255,0.08);padding:4px 9px;border-radius:20px;border:1px solid rgba(255,255,255,0.12);white-space:nowrap;flex-shrink:0;}
+  .avatar-btn{width:26px;height:26px;border-radius:50%;background:var(--teal);color:var(--ink);border:none;font-weight:700;font-size:10.5px;cursor:pointer;flex-shrink:0;display:none;align-items:center;justify-content:center;font-family:inherit;}
+  .avatar-btn.show{display:flex;}
+
+  .pulse-wrap{margin-top:16px;height:44px;position:relative;}
+  .pulse-wrap svg{width:100%;height:100%;overflow:visible;}
+  .pulse-line{
+    fill:none;stroke:url(#pulseGrad);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;
+    stroke-dasharray:6 400;animation:travel 3.2s linear infinite;
+  }
+  @keyframes travel{0%{stroke-dashoffset:0;}100%{stroke-dashoffset:-406;}}
+  .pulse-base{fill:none;stroke:rgba(255,255,255,0.14);stroke-width:1;}
+
+  .snapshot{display:flex;gap:10px;margin-top:14px;}
+  .snap-card{flex:1;min-width:0;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:10px 10px;}
+  .snap-card .label{font-size:9px;color:#9FC3C9;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .snap-card .value{font-size:15px;font-weight:600;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .snap-card .value span{display:block;font-size:9.5px;color:#9FC3C9;font-weight:500;margin-top:1px;}
+
+  /* ---------- MAIN ---------- */
+  main{flex:1;overflow-y:auto;padding:20px 20px 100px;}
+  main::-webkit-scrollbar{width:0;}
+  .panel{display:none;}
+  .panel.active{display:block;animation:fadeIn .25s ease;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+  .section-title{font-size:17px;font-weight:700;margin:0 0 3px;}
+  .section-sub{font-size:12.5px;color:var(--cloud);margin:0 0 16px;line-height:1.5;}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px;}
+  .card + .card{margin-top:14px;}
+
+  /* ---------- FORM ---------- */
+  label{display:block;font-size:11.5px;font-weight:600;color:var(--ink);margin:12px 0 5px;}
+  label:first-child{margin-top:0;}
+  input,select{
+    width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid var(--line);
+    font-family:inherit;font-size:13.5px;color:var(--ink);background:#FBFDFD;outline:none;
+    transition:border-color .15s;appearance:none;-webkit-appearance:none;
+  }
+  select{
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237C93A3' stroke-width='2'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat:no-repeat;background-position:right 10px center;background-size:16px;padding-right:32px;
+  }
+  input:focus,select:focus{border-color:var(--teal);}
+  select:disabled{opacity:0.5;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .hint{font-size:10.5px;color:var(--cloud);margin-top:4px;}
+  .btn{appearance:none;border:none;cursor:pointer;font-family:inherit;font-weight:600;border-radius:12px;padding:11px 16px;font-size:13.5px;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:transform .1s, opacity .15s;}
+  .btn:active{transform:scale(0.98);}
+  .btn:disabled{opacity:0.45;cursor:not-allowed;}
+  .btn-primary{background:var(--ink);color:#fff;width:100%;margin-top:16px;}
+  .btn-primary:hover{opacity:0.92;}
+
+  /* ---------- APPLIANCE LIST ---------- */
+  .appliance-item{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--line);}
+  .appliance-item:last-child{border-bottom:none;}
+  .aicon-wrap{width:38px;height:38px;border-radius:11px;background:var(--teal-dim);color:var(--teal);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;font-size:11px;}
+  .ai-info{flex:1;min-width:0;}
+  .ai-info .name{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ai-info .meta{font-size:11px;color:var(--cloud);margin-top:1px;}
+  .ai-actions{display:flex;gap:6px;}
+  .icon-btn{width:28px;height:28px;border-radius:8px;border:1px solid var(--line);background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--cloud);}
+  .icon-btn:hover{border-color:var(--teal);color:var(--teal);}
+  .icon-btn.del:hover{border-color:var(--coral);color:var(--coral);}
+  .empty-note{font-size:12px;color:var(--cloud);text-align:center;padding:18px 8px;}
+
+  /* ---------- HERO NUMBERS ---------- */
+  .hero-row{display:flex;gap:12px;}
+  .hero-card{flex:1;min-width:0;text-align:left;}
+  .hero-card .label{font-size:10.5px;color:var(--cloud);text-transform:uppercase;letter-spacing:0.5px;}
+  .hero-card .figure{font-size:24px;font-weight:600;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .hero-card .figure small{font-size:12px;color:var(--cloud);font-weight:500;}
+  .hero-card.accent .figure{color:var(--teal);}
+
+  .breakdown-row{display:flex;justify-content:space-between;font-size:12.5px;padding:7px 0;border-bottom:1px dashed var(--line);}
+  .breakdown-row:last-of-type{border-bottom:none;}
+  .breakdown-row .k{color:var(--cloud);}
+  .breakdown-row .v{font-weight:600;}
+  .breakdown-row.total{border-top:1.5px solid var(--ink);margin-top:4px;padding-top:10px;font-size:14px;}
+  .breakdown-row.total .v{color:var(--teal);font-size:16px;}
+  .disclaimer{font-size:10.5px;color:var(--cloud);line-height:1.5;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);}
+
+  .cost-list .row{display:flex;align-items:center;gap:10px;padding:8px 0;}
+  .cost-list .row .bar-track{flex:1;height:7px;border-radius:5px;background:var(--line);overflow:hidden;}
+  .cost-list .row .bar-fill{height:100%;background:var(--teal);border-radius:5px;}
+  .cost-list .row .amt{font-size:12px;font-weight:600;width:58px;text-align:right;flex-shrink:0;}
+  .cost-list .row .nm{font-size:12px;width:84px;flex-shrink:0;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+  /* ---------- BUDGET ---------- */
+  .ring-wrap{display:flex;align-items:center;gap:18px;}
+  .ring-wrap svg{width:120px;height:120px;flex-shrink:0;transform:rotate(-90deg);}
+  .ring-bg{fill:none;stroke:var(--line);stroke-width:11;}
+  .ring-fg{fill:none;stroke:var(--teal);stroke-width:11;stroke-linecap:round;transition:stroke-dashoffset .4s ease, stroke .4s ease;}
+  .ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .ring-pct{font-size:20px;font-weight:700;}
+  .ring-status{font-size:14px;font-weight:600;margin-top:6px;}
+  .ring-detail{font-size:12px;color:var(--cloud);margin-top:2px;}
+
+  .tips-list{list-style:none;margin:0;padding:0;}
+  .tips-list li{display:flex;gap:9px;font-size:12.5px;color:var(--ink);padding:8px 0;border-bottom:1px solid var(--line);line-height:1.5;}
+  .tips-list li:last-child{border-bottom:none;}
+  .tips-list .dot{width:6px;height:6px;border-radius:50%;background:var(--amber);margin-top:6px;flex-shrink:0;}
+
+  /* ---------- INSIGHTS ---------- */
+  .badge{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:0.3px;}
+  .badge.ok{background:var(--teal-dim);color:var(--teal);}
+  .badge.warn{background:var(--coral-dim);color:var(--coral);}
+  .badge.info{background:var(--amber-dim);color:#B8791F;}
+  .insight-card{border-left:3px solid var(--teal);}
+  .insight-card.alert{border-left-color:var(--coral);}
+  .insight-card .head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;}
+  .insight-card .head h4{font-size:13.5px;margin:0;font-weight:700;}
+  .insight-card p{font-size:12.5px;color:var(--ink);line-height:1.55;margin:0;}
+  .insight-card .save{font-size:12px;color:var(--teal);font-weight:600;margin-top:8px;}
+  .tou-legend{display:flex;gap:14px;font-size:11px;color:var(--cloud);margin-bottom:10px;}
+  .tou-legend span{display:inline-flex;align-items:center;gap:5px;}
+  .tou-legend i{width:9px;height:9px;border-radius:3px;display:inline-block;}
+  .tou-row{margin-bottom:10px;}
+  .tou-row .top{display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:4px;gap:8px;}
+  .tou-row .top .nm{font-weight:600;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .tou-row .top .kwh{color:var(--cloud);flex-shrink:0;}
+  .tou-bar{height:9px;border-radius:5px;overflow:hidden;display:flex;background:var(--line);}
+  .tou-peak{background:var(--coral);height:100%;}
+  .tou-off{background:var(--teal);height:100%;}
+  .future-strip{margin-top:6px;background:var(--amber-dim);border:1px dashed #E0BE86;border-radius:14px;padding:12px 14px;font-size:11.5px;color:#8A5F1C;line-height:1.6;}
+  .future-strip b{color:#6E4A11;}
+
+  /* ---------- TRACKER ---------- */
+  .trend-trail{font-size:12px;color:var(--ink);font-weight:600;margin-bottom:6px;}
+
+  /* ---------- DASHBOARD ---------- */
+  .dash-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+  .dash-stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;min-width:0;}
+  .dash-stat .label{font-size:9.5px;color:var(--cloud);text-transform:uppercase;letter-spacing:0.4px;}
+  .dash-stat .value{font-size:19px;font-weight:700;color:var(--ink);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .dash-stat .value small{font-size:10.5px;color:var(--cloud);font-weight:500;}
+
+  .run-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);}
+  .run-row:last-child{border-bottom:none;}
+  .run-dot{width:8px;height:8px;border-radius:50%;background:var(--teal);flex-shrink:0;animation:rpulse 1.6s ease-in-out infinite;}
+  @keyframes rpulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+  .run-info{flex:1;min-width:0;}
+  .run-info .nm{font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .run-info .sub{font-size:11px;color:var(--teal);font-weight:600;margin-top:1px;}
+
+  .timer-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);}
+  .timer-row:last-child{border-bottom:none;}
+  .timer-info{flex:1;min-width:0;}
+  .timer-info .nm{font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .timer-info .sub{font-size:10.5px;color:var(--cloud);margin-top:1px;}
+  .timer-btn{flex-shrink:0;border:none;border-radius:10px;padding:7px 13px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;}
+  .timer-btn.start{background:var(--teal);color:#fff;}
+  .timer-btn.stop{background:var(--coral);color:#fff;}
+
+  .rank-row{display:flex;align-items:center;gap:10px;padding:6px 0;}
+  .rank-num{width:14px;font-size:11px;font-weight:700;color:var(--cloud);flex-shrink:0;}
+  .rank-body{flex:1;min-width:0;}
+  .rank-top{display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;gap:8px;}
+  .rank-top .nm{font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+  .rank-top .pct{color:var(--cloud);flex-shrink:0;}
+
+  .week-graph{display:flex;align-items:flex-end;gap:6px;height:100px;margin-top:4px;}
+  .week-bar-wrap{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;}
+  .week-bar{width:100%;max-width:26px;background:var(--teal);border-radius:5px 5px 2px 2px;min-height:3px;}
+  .week-bar-label{font-size:8.5px;color:var(--cloud);margin-top:5px;}
+
+  .activity-row{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:11.5px;}
+  .activity-row:last-child{border-bottom:none;}
+  .activity-row .who{font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+  .activity-row .when{color:var(--cloud);flex-shrink:0;text-align:right;}
+
+  /* ---------- AI CHAT ---------- */
+  #panel-aichat{display:none;flex-direction:column;height:100%;}
+  #panel-aichat.active{display:flex;}
+  .chat-scroll{flex:1;overflow-y:auto;padding-bottom:10px;}
+  .bubble-row{display:flex;margin-bottom:10px;}
+  .bubble-row.user{justify-content:flex-end;}
+  .bubble{max-width:84%;border-radius:16px;padding:10px 14px;font-size:12.5px;line-height:1.55;white-space:pre-line;}
+  .bubble.ai{background:var(--teal-dim);color:var(--ink);border-top-left-radius:4px;}
+  .bubble.user{background:var(--ink);color:#fff;border-top-right-radius:4px;}
+  .chat-composer{border-top:1px solid var(--line);padding-top:14px;margin-top:8px;}
+  .chip-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
+  .chip{max-width:100%;box-sizing:border-box;padding:7px 12px;border-radius:999px;border:1.3px solid var(--line);background:#FBFDFD;font-size:11.5px;font-weight:600;color:var(--ink);cursor:pointer;user-select:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .chip.on{background:var(--teal);border-color:var(--teal);color:#fff;}
+
+  /* ---------- NAV ---------- */
+  nav.tabs{position:absolute;bottom:0;left:0;right:0;background:var(--ink);display:flex;padding:8px 4px calc(10px + env(safe-area-inset-bottom));border-top:1px solid rgba(255,255,255,0.06);}
+  nav.tabs button{flex:1;min-width:0;background:none;border:none;cursor:pointer;color:#7893A2;display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 1px;font-family:inherit;font-size:8.5px;font-weight:600;border-radius:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  nav.tabs button svg{width:17px;height:17px;}
+  nav.tabs button svg *{stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+  nav.tabs button.active{color:var(--teal);}
+  .tab-ico{width:30px;height:22px;border-radius:9px;display:flex;align-items:center;justify-content:center;}
+
+  @media (max-width:400px){.shell{border-radius:22px;max-height:none;min-height:100vh;}body{padding:0;}}
+  @media (max-width:360px){
+    header{padding:18px 16px 14px;}
+    main{padding:16px 16px 100px;}
+    .hero-card .figure{font-size:20px;}
+    .snap-card{padding:8px 8px;}
+    .snap-card .value{font-size:13px;}
+    .snapshot{gap:7px;}
+    nav.tabs button{font-size:7.8px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <header>
+    <div class="brand-row">
+      <div class="wordmark">
+        <svg class="logo-pulse" viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="14.5" stroke="#3FD9C4" stroke-width="1.4"/>
+          <path d="M6 16h4l2.2-6 3.6 12 2.2-8 1.6 2h6.4" stroke="#3FD9C4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div>
+          <div class="name">GreenPulse</div>
+          <div class="tagline">Pulse on energy. Peace on bills.</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="cycle-chip" id="cycleChip">Cycle · 30 days</div>
+        <button class="avatar-btn" id="avatarBtn" title="Account" onclick="openAccountPanel()">–</button>
+      </div>
+    </div>
+
+    <div class="pulse-wrap">
+      <svg viewBox="0 0 400 44" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="pulseGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#3FD9C4" stop-opacity="0"/>
+            <stop offset="50%" stop-color="#3FD9C4" stop-opacity="1"/>
+            <stop offset="100%" stop-color="#3FD9C4" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <path class="pulse-base" d="M0 22 H150 L162 22 L170 6 L180 38 L188 22 L200 22 H400"/>
+        <path class="pulse-line" d="M0 22 H150 L162 22 L170 6 L180 38 L188 22 L200 22 H400"/>
+      </svg>
+    </div>
+
+    <div class="snapshot">
+      <div class="snap-card"><div class="label">This month</div><div class="value num" id="snapKwh">— <span>kWh</span></div></div>
+      <div class="snap-card"><div class="label">Est. bill</div><div class="value num" id="snapBill">RM — <span></span></div></div>
+      <div class="snap-card"><div class="label">Budget used</div><div class="value num" id="snapBudget">—<span>%</span></div></div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- SECTION 1: REGISTER -->
+    <!-- SECTION 0: DASHBOARD (live home screen) -->
+    <section class="panel active" id="panel-dashboard">
+      <div class="section-title">Dashboard</div>
+      <p class="section-sub">Your live control panel. Press Start when you switch something on, Stop when you're done.</p>
+
+      <div class="dash-stats">
+        <div class="dash-stat"><div class="label">Today</div><div class="value num" id="dashToday">RM 0</div></div>
+        <div class="dash-stat"><div class="label">This week</div><div class="value num" id="dashWeek">RM 0</div></div>
+        <div class="dash-stat"><div class="label">Monthly forecast</div><div class="value num" id="dashForecast">RM 0</div></div>
+        <div class="dash-stat"><div class="label">Daily budget pace</div><div class="value num" id="dashPace">RM 0<small></small></div></div>
+      </div>
+
+      <div class="card" id="runningCard" style="display:none;">
+        <h3 style="font-size:13px;margin:0 0 2px;">Now running</h3>
+        <div id="runningList"></div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size:13px;margin:0 0 4px;">Your appliances</h3>
+        <p style="font-size:11px;color:var(--cloud);margin:0 0 6px;">Start a timer when you switch something on.</p>
+        <div id="timerList"></div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size:13px;margin:0 0 10px;">Top energy consumers</h3>
+        <div id="rankList"></div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size:13px;margin:0 0 2px;">This week</h3>
+        <p style="font-size:11px;color:var(--cloud);margin:0 0 4px;">Daily usage, last 7 days.</p>
+        <div class="week-graph" id="weekGraph"></div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size:13px;margin:0 0 8px;">Recent activity</h3>
+        <div id="activityList"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 1: REGISTER -->
+    <section class="panel" id="panel-register">
+      <div class="section-title">Register an appliance</div>
+      <p class="section-sub">Pick the type, then brand, then model — wattage fills in automatically from the database.</p>
+
+      <div class="card">
+        <form id="applianceForm">
+          <label for="f-type">Type of appliance</label>
+          <select id="f-type"></select>
+
+          <label for="f-brand">Brand</label>
+          <select id="f-brand"><option value="">Select a brand</option></select>
+          <input id="f-brand-manual" placeholder="e.g. Panasonic" style="display:none;margin-top:8px;">
+
+          <label for="f-model">Model</label>
+          <select id="f-model" disabled><option value="">Pick a brand first</option></select>
+          <input id="f-model-manual" placeholder="e.g. NN-ST34HW" style="display:none;margin-top:8px;">
+
+          <div class="row2" style="margin-top:12px;">
+            <div>
+              <label for="f-watt">Wattage (W)</label>
+              <input id="f-watt" type="number" min="1" required>
+            </div>
+            <div>
+              <label for="f-hours">Est. hours / month</label>
+              <input id="f-hours" type="number" min="1" required>
+            </div>
+          </div>
+          <div class="hint">Wattage auto-fills from the database once you pick a model — adjust if needed.</div>
+
+          <button type="submit" class="btn btn-primary" id="formSubmitBtn">Add appliance</button>
+        </form>
+      </div>
+
+      <div class="card" id="applianceListCard">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <h3 style="font-size:13.5px;margin:0;">Your appliances</h3>
+          <span class="badge info" id="applianceCountBadge">0</span>
+        </div>
+        <div id="applianceList"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: BILL -->
+    <section class="panel" id="panel-bill">
+      <div class="section-title">Bill &amp; consumption</div>
+      <p class="section-sub">Estimated from your registered appliances using TNB's Domestic Tariff (Peninsular Malaysia, restructured July 2025).</p>
+
+      <div class="card">
+        <div class="hero-row">
+          <div class="hero-card"><div class="label">Monthly usage</div><div class="figure num" id="billKwh">0 <small>kWh</small></div></div>
+          <div class="hero-card accent"><div class="label">Estimated bill</div><div class="figure num" id="billRm">RM 0</div></div>
+        </div>
+        <div style="margin-top:6px;font-size:11.5px;color:var(--cloud);" id="billDaily">≈ 0 kWh / day</div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size:13px;margin:0 0 6px;">How this is calculated</h3>
+        <div class="breakdown-row"><span class="k">Energy + capacity + network</span><span class="v num" id="bd-gross">RM 0.00</span></div>
+        <div class="breakdown-row"><span class="k">Energy Efficiency Incentive rebate</span><span class="v num" id="bd-eei" style="color:var(--teal);">− RM 0.00</span></div>
+        <div class="breakdown-row"><span class="k">Retail charge</span><span class="v num" id="bd-retail">RM 0.00</span></div>
+        <div class="breakdown-row total"><span class="k">Estimated total</span><span class="v num" id="bd-total">RM 0.00</span></div>
+        <div class="disclaimer">Estimate only. Based on TNB Tariff A's generation, capacity, network and EEI rebate structure effective 1 July 2025. Excludes the monthly Automatic Fuel Adjustment (AFA), SST, and the 1.6% KWTBB renewable energy levy — all typically small at student-level usage, but real. Always check your official TNB bill.</div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size:13px;margin:0 0 10px;">Cost by appliance</h3>
+        <div class="cost-list" id="costList"></div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size:13px;margin:0 0 4px;">Download usage report</h3>
+        <p style="font-size:11px;color:var(--cloud);margin:0 0 10px;">Get a PDF breakdown for any logged month, or the current live estimate.</p>
+        <label for="pdfMonthSelect">Month</label>
+        <select id="pdfMonthSelect"></select>
+        <button type="button" class="btn btn-primary" onclick="downloadMonthPDF()">Download PDF</button>
+      </div>
+    </section>
+
+    <!-- SECTION 3: BUDGET -->
+    <section class="panel" id="panel-budget">
+      <div class="section-title">Budget &amp; goals</div>
+      <p class="section-sub">Set a target and see how close you are to hitting — or breaking — it.</p>
+
+      <div class="card">
+        <label for="f-budget">Monthly budget goal (RM)</label>
+        <input id="f-budget" type="number" min="1" value="60">
+        <div class="ring-wrap" style="margin-top:18px;">
+          <div style="position:relative;width:120px;height:120px;">
+            <svg viewBox="0 0 120 120">
+              <circle class="ring-bg" cx="60" cy="60" r="50"></circle>
+              <circle class="ring-fg" id="ringFg" cx="60" cy="60" r="50" stroke-dasharray="314.16" stroke-dashoffset="314.16"></circle>
+            </svg>
+            <div class="ring-center"><div class="ring-pct num" id="ringPct">0%</div></div>
+          </div>
+          <div>
+            <div class="ring-status" id="ringStatus">—</div>
+            <div class="ring-detail num" id="ringDetail">RM 0 of RM 0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size:13px;margin:0 0 8px;">Basic saving tips</h3>
+        <ul class="tips-list">
+          <li><span class="dot"></span>Set air-conditioning to 24–25°C — every degree lower adds noticeably more energy use.</li>
+          <li><span class="dot"></span>Unplug chargers and appliances on standby; idle "phantom load" still draws power.</li>
+          <li><span class="dot"></span>Use natural daylight where possible instead of daytime lighting.</li>
+          <li><span class="dot"></span>Wash clothes on a cold or quick cycle when the load allows it.</li>
+          <li><span class="dot"></span>Swap old bulbs for LED — they use a fraction of the energy for the same brightness.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- SECTION 4: INSIGHTS -->
+    <section class="panel" id="panel-insights">
+      <div class="section-title">AI smart insights</div>
+      <p class="section-sub">Generated from your registered appliances and usage patterns.</p>
+
+      <div class="card">
+        <div class="head" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <h3 style="font-size:13.5px;margin:0;">Predictive analytics</h3>
+          <span class="badge ok">Forecast</span>
+        </div>
+        <p style="font-size:12.5px;line-height:1.55;margin:0;" id="predictText">—</p>
+      </div>
+
+      <div id="alertsWrap"></div>
+      <div id="movesWrap"></div>
+
+      <div class="card">
+        <h3 style="font-size:13px;margin:0 0 4px;">Peak vs off-peak mapping</h3>
+        <p style="font-size:11.5px;color:var(--cloud);margin:0 0 10px;">Illustrative peak window: 2pm–10pm.</p>
+        <div class="tou-legend"><span><i style="background:var(--coral);"></i>Peak</span><span><i style="background:var(--teal);"></i>Off-peak</span></div>
+        <div id="touList"></div>
+      </div>
+
+      <div class="future-strip"><b>Coming next for shared housing:</b> a Roommate Split view to divide costs fairly per appliance, and an opt-in Community Leaderboard to compare savings with others in your block.</div>
+    </section>
+
+    <!-- SECTION 6: TRACKER -->
+    <section class="panel" id="panel-tracker">
+      <div class="section-title">Usage tracker</div>
+      <p class="section-sub">Log this month's usage to build a history — the more months you log, the better GreenPulse can flag creeping overuse before it hits your wallet.</p>
+
+      <div class="card">
+        <h3 style="font-size:13.5px;margin:0;" id="trackerMonthLabel">—</h3>
+        <p style="font-size:11px;color:var(--cloud);margin:4px 0 0;">Snapshots your registered appliances' current hours as this month's record.</p>
+        <button type="button" class="btn btn-primary" id="logMonthBtn" style="margin-top:12px;">Log this month's usage</button>
+        <div class="hint" id="trackerNote" style="margin-top:8px;"></div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size:13px;margin:0 0 10px;">Monthly totals</h3>
+        <div class="cost-list" id="monthlyTotals"></div>
+      </div>
+
+      <div id="trendCards"></div>
+    </section>
+
+    <!-- SECTION 5: AI CHAT -->
+    <section class="panel" id="panel-aichat">
+      <div class="section-title" style="margin-bottom:2px;">AI usage advisor</div>
+      <p class="section-sub">Pick appliances and a monthly budget — it works out hours/month for each.</p>
+      <div class="chat-scroll" id="chatScroll"></div>
+      <div class="chat-composer">
+        <div id="chatEmpty" class="empty-note" style="display:none;">Register an appliance first, then come back here to plan your usage.</div>
+        <div id="chatControls">
+          <label style="margin-top:0;">Which appliances?</label>
+          <div class="chip-row" id="chatChips"></div>
+          <label for="f-chat-budget">Monthly budget (RM)</label>
+          <input id="f-chat-budget" type="number" min="1" value="60">
+          <button type="button" class="btn btn-primary" id="chatAskBtn">Ask GreenPulse AI</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACCOUNT PANEL (Profile + Settings) — reached via the header avatar, not the bottom nav -->
+    <section class="panel" id="panel-account">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <div class="icon-btn" onclick="closeAccountPanel()" style="width:30px;height:30px;">←</div>
+        <div class="section-title" style="margin:0;">Account</div>
+      </div>
+
+      <div class="card" style="text-align:center;">
+        <div id="acctAvatar" style="width:60px;height:60px;border-radius:50%;background:var(--teal-dim);color:var(--teal);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;margin:0 auto 10px;">?</div>
+        <div id="acctName" style="font-size:15.5px;font-weight:700;color:var(--ink);"></div>
+        <div id="acctEmail" style="font-size:11.5px;color:var(--cloud);margin-top:2px;"></div>
+        <div style="display:flex;justify-content:center;gap:16px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line);">
+          <div><div style="font-size:9px;color:var(--cloud);text-transform:uppercase;">Member since</div><div id="acctSince" style="font-size:12px;font-weight:600;margin-top:2px;">—</div></div>
+          <div><div style="font-size:9px;color:var(--cloud);text-transform:uppercase;">Green score</div><div id="acctScore" style="font-size:12px;font-weight:600;margin-top:2px;color:var(--teal);">—</div></div>
+          <div><div style="font-size:9px;color:var(--cloud);text-transform:uppercase;">This month</div><div id="acctCost" style="font-size:12px;font-weight:600;margin-top:2px;">—</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size:13px;margin:0 0 10px;">Personal information</h3>
+        <label for="acct-name">Full name</label>
+        <input id="acct-name" type="text">
+        <label for="acct-accom">Accommodation type</label>
+        <select id="acct-accom">
+          <option value="Dormitory">Dormitory</option>
+          <option value="Apartment">Apartment</option>
+          <option value="Rental House">Rental House</option>
+          <option value="Hostel">Hostel</option>
+          <option value="Other">Other</option>
+        </select>
+        <div class="row2">
+          <div><label for="acct-occupants">Occupants</label><input id="acct-occupants" type="number" min="1"></div>
+          <div><label for="acct-budget">Budget (RM)</label><input id="acct-budget" type="number" min="1"></div>
+        </div>
+        <button class="btn btn-primary" onclick="saveProfile()">Save changes</button>
+        <div class="hint" id="profileMsg" style="margin-top:8px;"></div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size:13px;margin:0 0 10px;">Change password</h3>
+        <label for="acct-curpw">Current password</label>
+        <input id="acct-curpw" type="password">
+        <label for="acct-newpw">New password</label>
+        <input id="acct-newpw" type="password">
+        <label for="acct-newpw2">Confirm new password</label>
+        <input id="acct-newpw2" type="password">
+        <button class="btn btn-primary" onclick="changePassword()">Update password</button>
+        <div class="hint" id="passwordMsg" style="margin-top:8px;"></div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size:13px;margin:0 0 4px;">Appliances</h3>
+        <p style="font-size:11.5px;color:var(--cloud);margin:0 0 10px;">Add, edit, or remove appliances from the Register tab.</p>
+        <button class="btn" style="background:#fff;color:var(--ink);border:1.5px solid var(--line);width:100%;padding:11px;border-radius:12px;font-weight:700;font-size:13.5px;cursor:pointer;font-family:inherit;" onclick="goToAppliances()">Manage appliances</button>
+      </div>
+
+      <div class="card" id="adminCard" style="display:none;border-color:var(--teal);">
+        <h3 style="font-size:13px;margin:0 0 4px;color:var(--teal);">Admin</h3>
+        <p style="font-size:11.5px;color:var(--cloud);margin:0 0 10px;">Manage the appliance database and tariff rates for everyone.</p>
+        <a href="admin.html" style="display:block;text-align:center;background:var(--teal);color:#fff;width:100%;padding:11px;border-radius:12px;font-weight:700;font-size:13.5px;text-decoration:none;box-sizing:border-box;">Open admin panel</a>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size:13px;margin:0 0 10px;">Login history</h3>
+        <div id="loginHistoryList"></div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size:13px;margin:0 0 4px;">About</h3>
+        <div class="breakdown-row"><span class="k">Version</span><span class="v">GreenPulse MVP v1.0</span></div>
+        <p style="font-size:11px;color:var(--cloud);margin-top:8px;line-height:1.6;">Privacy Policy and Terms & Conditions aren't drafted yet. Feedback form: add the link here once you have it.</p>
+      </div>
+
+      <div class="card" style="border-color:var(--coral);">
+        <h3 style="font-size:13px;margin:0 0 6px;color:var(--coral);">Delete account</h3>
+        <p style="font-size:11.5px;color:var(--cloud);margin:0 0 10px;">Permanently deletes your account and all data — this can't be undone.</p>
+        <button class="btn" style="background:var(--coral);color:#fff;width:100%;padding:11px;border-radius:12px;font-weight:700;font-size:13.5px;cursor:pointer;border:none;font-family:inherit;" onclick="confirmDeleteAccount()">Delete my account</button>
+      </div>
+
+      <button class="btn" style="background:var(--ink);color:#fff;width:100%;padding:13px;border-radius:12px;font-weight:700;font-size:14px;cursor:pointer;border:none;font-family:inherit;margin-bottom:24px;" onclick="confirmLogout()">Log out</button>
+    </section>
+
+  </main>
+
+
+  <nav class="tabs">
+    <button data-tab="dashboard" class="active">
+      <span class="tab-ico"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span>
+      Home
+    </button>
+    <button data-tab="register">
+      <span class="tab-ico"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+      Register
+    </button>
+    <button data-tab="bill">
+      <span class="tab-ico"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg></span>
+      Bill
+    </button>
+    <button data-tab="budget">
+      <span class="tab-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></span>
+      Budget
+    </button>
+    <button data-tab="insights">
+      <span class="tab-ico"><svg viewBox="0 0 24 24"><path d="M12 3 3 12h4v9h10v-9h4Z"/></svg></span>
+      Insights
+    </button>
+    <button data-tab="tracker">
+      <span class="tab-ico"><svg viewBox="0 0 24 24"><path d="M4 19V10M11 19V5M18 19v-7"/></svg></span>
+      Tracker
+    </button>
+    <button data-tab="aichat">
+      <span class="tab-ico"><svg viewBox="0 0 24 24"><path d="M4 4h16v12H8l-4 4Z"/></svg></span>
+      AI Chat
+    </button>
+  </nav>
+
+</div>
+
+<script>
+(function(){
+
+  // ============================================================
+  // DATABASE — mirrors database/schema.sql exactly (same brand_id
+  // numbering) so this bundled copy and the live PHP API are always
+  // interchangeable. Set API_BASE below once the PHP endpoints are
+  // deployed; leave blank to run entirely on this bundled data.
+  // ============================================================
+  const API_BASE = '/api'; // same-origin Vercel serverless functions; falls back to bundled data if unreachable
+  const MANUAL = '__manual__';
+
+  const BRANDS = {
+    1:'ASUS',2:'Acer',3:'Acson',4:'Alpha',5:'Apple',6:'Beko',
+    7:'Centon',8:'Cornell',9:'D-Link',10:'Daikin',11:'Dell',12:'Elba',
+    13:'Electrolux',14:'Faber',15:'HP',16:'Haier',17:'Hisense',18:'Hitachi',
+    19:'Huawei',20:'Joven',21:'KDK',22:'Khind',23:'LG',24:'Lenovo',
+    25:'Linksys',26:'MSI',27:'Mercusys',28:'Midea',29:'Mistral',30:'Mitsubishi Electric',
+    31:'Morgan',32:'Morphy Richards',33:'Netgear',34:'Osram',35:'Panasonic',36:'Pensonic',
+    37:'Philips',38:'Rubine',39:'Russell Taylors',40:'Samsung',41:'Sharp',42:'Sony',
+    43:'TCL',44:'TP-Link',45:'Tefal',46:'Tenda',47:'Tiger',48:'Toshiba',
+    49:'Xiaomi',50:'Zojirushi'
+  };
+
+  // Representative set across common Malaysian-market brands per type —
+  // not an exhaustive global catalog (no free complete source for that
+  // exists). For genuinely complete Malaysia coverage, Suruhanjaya
+  // Tenaga's MEPS registry (edik.st.gov.my) is the authoritative source.
+  const CATALOG = [
+    {brand_id:35,type:'Air Conditioner',model:'CS-XPU10XKH',watt:750},
+    {brand_id:10,type:'Air Conditioner',model:'FTKF25C',watt:780},
+    {brand_id:40,type:'Air Conditioner',model:'AR10TYHYEWK',watt:780},
+    {brand_id:23,type:'Air Conditioner',model:'DualCool S3-Q09JA3WA',watt:820},
+    {brand_id:41,type:'Air Conditioner',model:'AH-A9BEY',watt:750},
+    {brand_id:10,type:'Air Conditioner',model:'FTKF35CV1',watt:1100},
+    {brand_id:10,type:'Air Conditioner',model:'FTKF50CV1',watt:1550},
+    {brand_id:28,type:'Air Conditioner',model:'MSAFB-10CRN8',watt:820},
+    {brand_id:17,type:'Air Conditioner',model:'AS-09TR4RYDTU00',watt:780},
+    {brand_id:16,type:'Air Conditioner',model:'HSU-10VRA03',watt:850},
+    {brand_id:35,type:'Air Conditioner',model:'CS-XU10XKH',watt:760},
+    {brand_id:35,type:'Air Conditioner',model:'CS-PU13XKH',watt:980},
+    {brand_id:23,type:'Air Conditioner',model:'S3-Q12JA3WA',watt:980},
+    {brand_id:40,type:'Air Conditioner',model:'AR13TYHYEWK',watt:980},
+    {brand_id:41,type:'Air Conditioner',model:'AH-X10VED2',watt:780},
+    {brand_id:30,type:'Air Conditioner',model:'MSY-JP10VF',watt:760},
+    {brand_id:30,type:'Air Conditioner',model:'MSY-JP13VF',watt:980},
+    {brand_id:3,type:'Air Conditioner',model:'A3WM10G',watt:780},
+    {brand_id:17,type:'Air Conditioner',model:'AS-13TR4RYDTU00',watt:980},
+    {brand_id:43,type:'Air Conditioner',model:'TAC-09CSA',watt:820},
+    {brand_id:35,type:'Air Conditioner',model:'CS-PU18XKH',watt:1450},
+    {brand_id:10,type:'Air Conditioner',model:'FTKF60CV1',watt:1800},
+    {brand_id:30,type:'Air Conditioner',model:'MSY-GN18VF',watt:1500},
+    {brand_id:16,type:'Air Conditioner',model:'HSU-13VRA03',watt:980},
+    {brand_id:3,type:'Air Conditioner',model:'A5WM15G',watt:1200},
+    {brand_id:40,type:'Air Conditioner',model:'AR24TYHYEWK',watt:2100},
+    {brand_id:23,type:'Air Conditioner',model:'S4-W18KL3AA',watt:1850},
+    {brand_id:10,type:'Air Conditioner',model:'FTKF71CV1',watt:2200},
+    {brand_id:35,type:'Air Conditioner',model:'CS-XU24XKH',watt:2050},
+    {brand_id:41,type:'Air Conditioner',model:'AH-X18VED2',watt:1550},
+    {brand_id:28,type:'Air Conditioner',model:'MSAGB-12CRN8',watt:980},
+    {brand_id:16,type:'Air Conditioner',model:'HSU-18VRA03',watt:1600},
+    {brand_id:43,type:'Air Conditioner',model:'TAC-18CSA',watt:1550},
+    {brand_id:17,type:'Air Conditioner',model:'AS-18TR4RYDTU00',watt:1600},
+    {brand_id:3,type:'Air Conditioner',model:'A5WM20G',watt:1800},
+    {brand_id:10,type:'Air Conditioner',model:'FTKF50DV1',watt:1550},
+    {brand_id:23,type:'Air Conditioner',model:'S4-Q24K23AA',watt:2100},
+    {brand_id:40,type:'Air Conditioner',model:'AR18CYFAAWK',watt:1700},
+    {brand_id:41,type:'Air Conditioner',model:'AH-X13VED2',watt:980},
+    {brand_id:35,type:'Air Conditioner',model:'CS-XU18XKH',watt:1500},
+    {brand_id:28,type:'Air Conditioner',model:'MSAGC-24CRN8',watt:2200},
+    {brand_id:16,type:'Air Conditioner',model:'HSU-24VRA03',watt:2200},
+    {brand_id:43,type:'Air Conditioner',model:'TAC-24CSA',watt:2200},
+    {brand_id:17,type:'Air Conditioner',model:'AS-24TR4RYDTU00',watt:2200},
+    {brand_id:3,type:'Air Conditioner',model:'A5WM25G',watt:2400},
+    {brand_id:10,type:'Air Conditioner',model:'FTKM71U',watt:2400},
+    {brand_id:35,type:'Air Conditioner',model:'CS-Z25XKH',watt:900},
+    {brand_id:23,type:'Air Conditioner',model:'S3-W09JA3AA',watt:780},
+    {brand_id:40,type:'Air Conditioner',model:'AR09CYFAAWK',watt:760},
+    {brand_id:41,type:'Air Conditioner',model:'AH-X9VED2',watt:760},
+    {brand_id:35,type:'Air Conditioner',model:'CS-Z35XKH',watt:1150},
+    {brand_id:10,type:'Air Conditioner',model:'FTKM35U',watt:1150},
+    {brand_id:23,type:'Air Conditioner',model:'S3-W12JA3AA',watt:980},
+    {brand_id:40,type:'Air Conditioner',model:'AR12CYFAAWK',watt:980},
+    {brand_id:28,type:'Air Conditioner',model:'MSAGDU-12HRFN8',watt:1000},
+    {brand_id:10,type:'Air Conditioner',model:'FTKU50V',watt:1550},
+    {brand_id:35,type:'Air Conditioner',model:'CS-XZ50XKH',watt:1550},
+    {brand_id:23,type:'Air Conditioner',model:'S5-W18KL3AA',watt:1800},
+    {brand_id:40,type:'Air Conditioner',model:'AR18CYHAAWK',watt:1750},
+    {brand_id:41,type:'Air Conditioner',model:'AH-X24VED2',watt:2200},
+    {brand_id:35,type:'Air Conditioner',model:'CS-Z60XKH',watt:1800},
+    {brand_id:10,type:'Air Conditioner',model:'FTKU60V',watt:1800},
+    {brand_id:23,type:'Air Conditioner',model:'S5-W24KL3AA',watt:2200},
+    {brand_id:40,type:'Air Conditioner',model:'AR24CYHAAWK',watt:2200},
+    {brand_id:30,type:'Air Conditioner',model:'MSY-GN24VF',watt:2200},
+    {brand_id:35,type:'Air Conditioner',model:'CS-Z71XKH',watt:2200},
+    {brand_id:10,type:'Air Conditioner',model:'FTKU71V',watt:2200},
+    {brand_id:23,type:'Air Conditioner',model:'S5-W30KL3AA',watt:2600},
+    {brand_id:40,type:'Air Conditioner',model:'AR30CYHAAWK',watt:2600},
+    {brand_id:28,type:'Air Conditioner',model:'MSAGDU-24HRFN8',watt:2200},
+    {brand_id:35,type:'Air Conditioner',model:'CS-XZ71XKH',watt:2250},
+    {brand_id:10,type:'Air Conditioner',model:'FTKM71XV',watt:2250},
+    {brand_id:23,type:'Air Conditioner',model:'S5-W36KL3AA',watt:2800},
+    {brand_id:40,type:'Air Conditioner',model:'AR36CYHAAWK',watt:2800},
+    {brand_id:28,type:'Air Conditioner',model:'MSAGDU-30HRFN8',watt:2600},
+    {brand_id:35,type:'Air Conditioner',model:'CS-Z80XKH',watt:2500},
+    {brand_id:10,type:'Air Conditioner',model:'FTKM80XV',watt:2500},
+    {brand_id:23,type:'Air Conditioner',model:'S5-W42KL3AA',watt:3200},
+    {brand_id:40,type:'Air Conditioner',model:'AR42CYHAAWK',watt:3200},
+    {brand_id:28,type:'Air Conditioner',model:'MSAGDU-36HRFN8',watt:3000},
+    {brand_id:35,type:'Fan',model:'F-409K',watt:57},
+    {brand_id:21,type:'Fan',model:'M40MS',watt:48},
+    {brand_id:36,type:'Fan',model:'PTF-40A',watt:55},
+    {brand_id:41,type:'Fan',model:'PJ-S40MY',watt:50},
+    {brand_id:49,type:'Fan',model:'Smart Standing Fan 2',watt:15},
+    {brand_id:21,type:'Fan',model:'K15Z5',watt:50},
+    {brand_id:21,type:'Fan',model:'U48FP',watt:115},
+    {brand_id:35,type:'Fan',model:'F-MN404',watt:40},
+    {brand_id:28,type:'Fan',model:'FS40-15QR',watt:50},
+    {brand_id:29,type:'Fan',model:'MSF1648R',watt:55},
+    {brand_id:21,type:'Fan',model:'N56YG',watt:70},
+    {brand_id:35,type:'Fan',model:'F-56MZG',watt:70},
+    {brand_id:22,type:'Fan',model:'SF16',watt:55},
+    {brand_id:36,type:'Fan',model:'PF-45A',watt:60},
+    {brand_id:28,type:'Fan',model:'FS40-18BR',watt:55},
+    {brand_id:29,type:'Fan',model:'MSF1629R',watt:50},
+    {brand_id:38,type:'Fan',model:'RWF-1601',watt:55},
+    {brand_id:31,type:'Fan',model:'MFS-S16',watt:50},
+    {brand_id:8,type:'Fan',model:'CFN-S16',watt:55},
+    {brand_id:12,type:'Fan',model:'EFS-G4018',watt:55},
+    {brand_id:21,type:'Fan',model:'M40KS',watt:48},
+    {brand_id:35,type:'Fan',model:'F-409LS',watt:57},
+    {brand_id:22,type:'Fan',model:'SF18',watt:60},
+    {brand_id:36,type:'Fan',model:'PF-50A',watt:65},
+    {brand_id:28,type:'Fan',model:'FS45-10AR',watt:60},
+    {brand_id:21,type:'Fan',model:'K14YZ',watt:50},
+    {brand_id:35,type:'Fan',model:'F-56XPG',watt:75},
+    {brand_id:28,type:'Fan',model:'FS40-19M',watt:55},
+    {brand_id:22,type:'Fan',model:'SF20',watt:65},
+    {brand_id:38,type:'Fan',model:'RCF-1602',watt:60},
+    {brand_id:21,type:'Fan',model:'M56XR',watt:75},
+    {brand_id:35,type:'Fan',model:'F-60UFN',watt:78},
+    {brand_id:41,type:'Fan',model:'PJ-S49MY',watt:60},
+    {brand_id:8,type:'Fan',model:'CFN-S18',watt:60},
+    {brand_id:29,type:'Fan',model:'MSF1888R',watt:65},
+    {brand_id:21,type:'Fan',model:'A56RA',watt:72},
+    {brand_id:36,type:'Fan',model:'PF-56A',watt:70},
+    {brand_id:22,type:'Fan',model:'SF24',watt:70},
+    {brand_id:28,type:'Fan',model:'FS45-20M',watt:65},
+    {brand_id:38,type:'Fan',model:'RCF-1801',watt:65},
+    {brand_id:35,type:'Fan',model:'F-60GDS',watt:80},
+    {brand_id:21,type:'Fan',model:'M60SG',watt:82},
+    {brand_id:41,type:'Fan',model:'PJ-R40MY',watt:55},
+    {brand_id:22,type:'Fan',model:'SF26',watt:75},
+    {brand_id:29,type:'Fan',model:'MSF2000',watt:70},
+    {brand_id:36,type:'Fan',model:'PF-60A',watt:70},
+    {brand_id:8,type:'Fan',model:'CFN-S20',watt:65},
+    {brand_id:12,type:'Fan',model:'EFS-G4518',watt:60},
+    {brand_id:28,type:'Fan',model:'FS40-22M',watt:55},
+    {brand_id:21,type:'Fan',model:'M56SR',watt:75},
+    {brand_id:21,type:'Fan',model:'M40CS',watt:48},
+    {brand_id:35,type:'Fan',model:'F-50XDN',watt:65},
+    {brand_id:41,type:'Fan',model:'PJ-T40MY',watt:55},
+    {brand_id:22,type:'Fan',model:'SF22',watt:65},
+    {brand_id:28,type:'Fan',model:'FS45-25M',watt:60},
+    {brand_id:21,type:'Fan',model:'M56GS',watt:75},
+    {brand_id:35,type:'Fan',model:'F-60WWK',watt:80},
+    {brand_id:28,type:'Fan',model:'FS50-30M',watt:70},
+    {brand_id:8,type:'Fan',model:'CFN-S24',watt:70},
+    {brand_id:36,type:'Fan',model:'PF-65A',watt:75},
+    {brand_id:21,type:'Fan',model:'M60XR',watt:85},
+    {brand_id:35,type:'Fan',model:'F-60ALA',watt:80},
+    {brand_id:22,type:'Fan',model:'SF28',watt:75},
+    {brand_id:36,type:'Fan',model:'PF-70A',watt:80},
+    {brand_id:28,type:'Fan',model:'FS50-35M',watt:75},
+    {brand_id:21,type:'Fan',model:'M60TZ',watt:85},
+    {brand_id:35,type:'Fan',model:'F-60FAN',watt:82},
+    {brand_id:22,type:'Fan',model:'SF30',watt:80},
+    {brand_id:36,type:'Fan',model:'PF-75A',watt:85},
+    {brand_id:28,type:'Fan',model:'FS60-40M',watt:80},
+    {brand_id:21,type:'Fan',model:'M60EZ',watt:85},
+    {brand_id:35,type:'Fan',model:'F-60MZ2',watt:80},
+    {brand_id:22,type:'Fan',model:'SF32',watt:80},
+    {brand_id:36,type:'Fan',model:'PF-80A',watt:85},
+    {brand_id:28,type:'Fan',model:'FS60-45M',watt:80},
+    {brand_id:21,type:'Fan',model:'M60ZX',watt:90},
+    {brand_id:35,type:'Fan',model:'F-70XDN',watt:85},
+    {brand_id:22,type:'Fan',model:'SF36',watt:85},
+    {brand_id:36,type:'Fan',model:'PF-90A',watt:90},
+    {brand_id:28,type:'Fan',model:'FS65-50M',watt:85},
+    {brand_id:40,type:'Refrigerator',model:'RT31CG5420S9',watt:110},
+    {brand_id:23,type:'Refrigerator',model:'GN-B392PXBK',watt:120},
+    {brand_id:35,type:'Refrigerator',model:'NR-TC361BUKM',watt:95},
+    {brand_id:41,type:'Refrigerator',model:'SJ-285MSS',watt:120},
+    {brand_id:18,type:'Refrigerator',model:'R-H350P7M',watt:130},
+    {brand_id:40,type:'Refrigerator',model:'RR39C7AF5S9',watt:130},
+    {brand_id:23,type:'Refrigerator',model:'GC-B257SQYL',watt:180},
+    {brand_id:48,type:'Refrigerator',model:'GR-RT234WE',watt:120},
+    {brand_id:17,type:'Refrigerator',model:'RR120D4AGN',watt:90},
+    {brand_id:13,type:'Refrigerator',model:'ETB4602AA',watt:150},
+    {brand_id:35,type:'Refrigerator',model:'NR-BX471WGKM',watt:140},
+    {brand_id:41,type:'Refrigerator',model:'SJ-XP382PG',watt:150},
+    {brand_id:28,type:'Refrigerator',model:'MDRT385MTM46',watt:130},
+    {brand_id:6,type:'Refrigerator',model:'RDSA240K30SN',watt:120},
+    {brand_id:16,type:'Refrigerator',model:'HRF-IV230H',watt:120},
+    {brand_id:30,type:'Refrigerator',model:'MR-FV28N',watt:120},
+    {brand_id:35,type:'Refrigerator',model:'NR-BX418XSMY',watt:135},
+    {brand_id:23,type:'Refrigerator',model:'GN-H602HLHU',watt:170},
+    {brand_id:40,type:'Refrigerator',model:'RT42CG6624S9',watt:140},
+    {brand_id:41,type:'Refrigerator',model:'SJ-FTB03CHX',watt:135},
+    {brand_id:17,type:'Refrigerator',model:'RT423N4AWU',watt:145},
+    {brand_id:48,type:'Refrigerator',model:'GR-AG41SDZ',watt:150},
+    {brand_id:13,type:'Refrigerator',model:'ETM3400L',watt:140},
+    {brand_id:28,type:'Refrigerator',model:'MDRB470MGM46',watt:155},
+    {brand_id:18,type:'Refrigerator',model:'R-VG660P7M',watt:190},
+    {brand_id:40,type:'Refrigerator',model:'RS64R5301B4',watt:220},
+    {brand_id:23,type:'Refrigerator',model:'GC-X257CSAV',watt:250},
+    {brand_id:35,type:'Refrigerator',model:'NR-YW590YMMY',watt:220},
+    {brand_id:18,type:'Refrigerator',model:'R-WB640V0MS',watt:230},
+    {brand_id:41,type:'Refrigerator',model:'SJ-FX640V',watt:210},
+    {brand_id:30,type:'Refrigerator',model:'MR-FC31EP',watt:150},
+    {brand_id:40,type:'Refrigerator',model:'RB34C602ESA',watt:160},
+    {brand_id:23,type:'Refrigerator',model:'GB-B405PL',watt:155},
+    {brand_id:35,type:'Refrigerator',model:'NR-BL348PSMY',watt:140},
+    {brand_id:6,type:'Refrigerator',model:'RDNE350K20XP',watt:150},
+    {brand_id:18,type:'Refrigerator',model:'R-FVX480P',watt:180},
+    {brand_id:17,type:'Refrigerator',model:'RT549N4ABU',watt:170},
+    {brand_id:16,type:'Refrigerator',model:'HRF-IV320H',watt:150},
+    {brand_id:48,type:'Refrigerator',model:'GR-RF610WE',watt:210},
+    {brand_id:13,type:'Refrigerator',model:'ESE6201BG',watt:220},
+    {brand_id:23,type:'Refrigerator',model:'GR-B608S',watt:220},
+    {brand_id:40,type:'Refrigerator',model:'RS70F65Q3FS',watt:250},
+    {brand_id:35,type:'Refrigerator',model:'NR-DZ601VGK',watt:240},
+    {brand_id:18,type:'Refrigerator',model:'R-WXC740KM',watt:260},
+    {brand_id:41,type:'Refrigerator',model:'SJ-FSD910V',watt:250},
+    {brand_id:28,type:'Refrigerator',model:'MDRS710FGF46',watt:260},
+    {brand_id:17,type:'Refrigerator',model:'RQ768N4SWU',watt:240},
+    {brand_id:16,type:'Refrigerator',model:'HRF-IV550MD',watt:220},
+    {brand_id:48,type:'Refrigerator',model:'GR-RS755WI',watt:250},
+    {brand_id:13,type:'Refrigerator',model:'EQE6879A-B',watt:240},
+    {brand_id:35,type:'Refrigerator',model:'NR-CY558GKMY',watt:230},
+    {brand_id:23,type:'Refrigerator',model:'GB-X257CSAV',watt:250},
+    {brand_id:40,type:'Refrigerator',model:'RF49A5102SL',watt:240},
+    {brand_id:18,type:'Refrigerator',model:'R-WB560P7M',watt:220},
+    {brand_id:17,type:'Refrigerator',model:'RQ758N4SWU',watt:230},
+    {brand_id:13,type:'Refrigerator',model:'ETB5702AA',watt:220},
+    {brand_id:48,type:'Refrigerator',model:'GR-RS780WI',watt:260},
+    {brand_id:6,type:'Refrigerator',model:'GN163241XBRN',watt:250},
+    {brand_id:16,type:'Refrigerator',model:'HRF-IV600MD',watt:240},
+    {brand_id:30,type:'Refrigerator',model:'MR-LX564ER',watt:230},
+    {brand_id:23,type:'Refrigerator',model:'GR-X257CSAV',watt:260},
+    {brand_id:40,type:'Refrigerator',model:'RF65DG960ESL',watt:270},
+    {brand_id:35,type:'Refrigerator',model:'NR-F603GT',watt:250},
+    {brand_id:18,type:'Refrigerator',model:'R-WXC670KM',watt:250},
+    {brand_id:41,type:'Refrigerator',model:'SJ-FX680VG',watt:240},
+    {brand_id:23,type:'Refrigerator',model:'GR-X267CQES',watt:280},
+    {brand_id:40,type:'Refrigerator',model:'RF71DG962ESL',watt:290},
+    {brand_id:35,type:'Refrigerator',model:'NR-F653GT',watt:270},
+    {brand_id:18,type:'Refrigerator',model:'R-WXC740RM',watt:280},
+    {brand_id:41,type:'Refrigerator',model:'SJ-FSD760V',watt:260},
+    {brand_id:23,type:'Refrigerator',model:'GR-B28FTQVB',watt:290},
+    {brand_id:40,type:'Refrigerator',model:'RF85DG960ESL',watt:300},
+    {brand_id:35,type:'Refrigerator',model:'NR-F703GS',watt:280},
+    {brand_id:18,type:'Refrigerator',model:'R-WXC820KM',watt:290},
+    {brand_id:41,type:'Refrigerator',model:'SJ-FX760VG',watt:280},
+    {brand_id:23,type:'Refrigerator',model:'GR-X31FTKHL',watt:320},
+    {brand_id:40,type:'Refrigerator',model:'RF90DG980ESL',watt:330},
+    {brand_id:35,type:'Refrigerator',model:'NR-F753GS',watt:310},
+    {brand_id:18,type:'Refrigerator',model:'R-WXC900KM',watt:320},
+    {brand_id:41,type:'Refrigerator',model:'SJ-FX820VG',watt:300},
+    {brand_id:20,type:'Water Heater',model:'SA10E',watt:3000},
+    {brand_id:20,type:'Water Heater',model:'SB11E',watt:3600},
+    {brand_id:20,type:'Water Heater',model:'JP250',watt:2500},
+    {brand_id:35,type:'Water Heater',model:'DH-3MS1',watt:3600},
+    {brand_id:4,type:'Water Heater',model:'A18EP',watt:3600},
+    {brand_id:4,type:'Water Heater',model:'EZ90E',watt:3600},
+    {brand_id:35,type:'Water Heater',model:'DH-3RL1',watt:3600},
+    {brand_id:38,type:'Water Heater',model:'RWH-1388',watt:3600},
+    {brand_id:7,type:'Water Heater',model:'Instant 833',watt:3600},
+    {brand_id:48,type:'Water Heater',model:'DSK38S5MB',watt:3800},
+    {brand_id:38,type:'Water Heater',model:'RWH-CM88',watt:3600},
+    {brand_id:4,type:'Water Heater',model:'i-18',watt:3600},
+    {brand_id:7,type:'Water Heater',model:'888E',watt:3600},
+    {brand_id:35,type:'Water Heater',model:'DH-3RP1',watt:3600},
+    {brand_id:20,type:'Water Heater',model:'SL30i',watt:3600},
+    {brand_id:35,type:'Water Heater',model:'DH-3UD1',watt:3600},
+    {brand_id:4,type:'Water Heater',model:'Smart18i',watt:3600},
+    {brand_id:38,type:'Water Heater',model:'RWH-1388B',watt:3600},
+    {brand_id:20,type:'Water Heater',model:'SA8E',watt:3000},
+    {brand_id:7,type:'Water Heater',model:'Instant 988',watt:3600},
+    {brand_id:20,type:'Water Heater',model:'PS220',watt:2200},
+    {brand_id:38,type:'Water Heater',model:'RWH-2388',watt:3600},
+    {brand_id:4,type:'Water Heater',model:'A18E',watt:3600},
+    {brand_id:35,type:'Water Heater',model:'DH-4NP1',watt:3900},
+    {brand_id:7,type:'Water Heater',model:'Instant 900',watt:3600},
+    {brand_id:20,type:'Water Heater',model:'PS320',watt:3200},
+    {brand_id:4,type:'Water Heater',model:'i-98',watt:3600},
+    {brand_id:38,type:'Water Heater',model:'RWH-3388',watt:3600},
+    {brand_id:35,type:'Water Heater',model:'DH-4HS1',watt:3900},
+    {brand_id:7,type:'Water Heater',model:'Instant 999',watt:3600},
+    {brand_id:20,type:'Water Heater',model:'SA11E',watt:3600},
+    {brand_id:4,type:'Water Heater',model:'X5',watt:3600},
+    {brand_id:38,type:'Water Heater',model:'RWH-2888',watt:3600},
+    {brand_id:7,type:'Water Heater',model:'Instant 777',watt:3600},
+    {brand_id:35,type:'Water Heater',model:'DH-4US1',watt:3900},
+    {brand_id:20,type:'Water Heater',model:'PS120',watt:2200},
+    {brand_id:4,type:'Water Heater',model:'A10EP',watt:3600},
+    {brand_id:38,type:'Water Heater',model:'RWH-3988',watt:3600},
+    {brand_id:35,type:'Water Heater',model:'DH-4NS1',watt:3900},
+    {brand_id:7,type:'Water Heater',model:'Instant 666',watt:3600},
+    {brand_id:20,type:'Water Heater',model:'PS420',watt:4200},
+    {brand_id:4,type:'Water Heater',model:'X8',watt:3800},
+    {brand_id:38,type:'Water Heater',model:'RWH-5888',watt:3800},
+    {brand_id:7,type:'Water Heater',model:'Instant 1200',watt:3800},
+    {brand_id:35,type:'Water Heater',model:'DH-4UP1',watt:3900},
+    {brand_id:20,type:'Water Heater',model:'SA15E',watt:3600},
+    {brand_id:4,type:'Water Heater',model:'A8EP',watt:3600},
+    {brand_id:38,type:'Water Heater',model:'RWH-6888',watt:3800},
+    {brand_id:35,type:'Water Heater',model:'DH-4VP1',watt:3900},
+    {brand_id:7,type:'Water Heater',model:'Instant 1500',watt:3800},
+    {brand_id:20,type:'Water Heater',model:'SA20E',watt:3600},
+    {brand_id:35,type:'Water Heater',model:'DH-4HP1',watt:3900},
+    {brand_id:4,type:'Water Heater',model:'A12EP',watt:3600},
+    {brand_id:38,type:'Water Heater',model:'RWH-7888',watt:3800},
+    {brand_id:7,type:'Water Heater',model:'Instant 1600',watt:3800},
+    {brand_id:20,type:'Water Heater',model:'PS520',watt:4200},
+    {brand_id:4,type:'Water Heater',model:'X10',watt:3800},
+    {brand_id:38,type:'Water Heater',model:'RWH-8888',watt:3800},
+    {brand_id:35,type:'Water Heater',model:'DH-4XP1',watt:3900},
+    {brand_id:7,type:'Water Heater',model:'Instant 1800',watt:3800},
+    {brand_id:20,type:'Water Heater',model:'SA25E',watt:3600},
+    {brand_id:4,type:'Water Heater',model:'X12',watt:3800},
+    {brand_id:38,type:'Water Heater',model:'RWH-9800',watt:3800},
+    {brand_id:35,type:'Water Heater',model:'DH-4YP1',watt:3900},
+    {brand_id:7,type:'Water Heater',model:'Instant 2000',watt:3800},
+    {brand_id:20,type:'Water Heater',model:'SA30E',watt:3600},
+    {brand_id:4,type:'Water Heater',model:'A15EP',watt:3800},
+    {brand_id:38,type:'Water Heater',model:'RWH-10888',watt:3800},
+    {brand_id:35,type:'Water Heater',model:'DH-4ZP1',watt:3900},
+    {brand_id:7,type:'Water Heater',model:'Instant 2200',watt:3800},
+    {brand_id:20,type:'Water Heater',model:'SA35E',watt:3600},
+    {brand_id:38,type:'Water Heater',model:'RWH-11888',watt:3800},
+    {brand_id:35,type:'Water Heater',model:'DH-5AP1',watt:4500},
+    {brand_id:7,type:'Water Heater',model:'Instant 2500',watt:3800},
+    {brand_id:20,type:'Water Heater',model:'SA40E',watt:3600},
+    {brand_id:4,type:'Water Heater',model:'A20EP',watt:3800},
+    {brand_id:38,type:'Water Heater',model:'RWH-12888',watt:3800},
+    {brand_id:35,type:'Water Heater',model:'DH-5BP1',watt:4500},
+    {brand_id:7,type:'Water Heater',model:'Instant 3000',watt:3800},
+    {brand_id:23,type:'Washing Machine',model:'FV1409S4W',watt:2000},
+    {brand_id:40,type:'Washing Machine',model:'WW10T504DAX',watt:2000},
+    {brand_id:48,type:'Washing Machine',model:'AW-J900AM',watt:450},
+    {brand_id:13,type:'Washing Machine',model:'EWF9024P5WB',watt:2000},
+    {brand_id:6,type:'Washing Machine',model:'WTL84121W',watt:2000},
+    {brand_id:40,type:'Washing Machine',model:'WA13CG5441BY',watt:500},
+    {brand_id:23,type:'Washing Machine',model:'T2313VS2M',watt:500},
+    {brand_id:17,type:'Washing Machine',model:'WTJA8012T',watt:500},
+    {brand_id:12,type:'Washing Machine',model:'EWM-H850',watt:2000},
+    {brand_id:28,type:'Washing Machine',model:'MA200W85',watt:500},
+    {brand_id:35,type:'Washing Machine',model:'NA-F90A9',watt:500},
+    {brand_id:41,type:'Washing Machine',model:'ESX905',watt:450},
+    {brand_id:48,type:'Washing Machine',model:'AW-DUK1300KM',watt:550},
+    {brand_id:16,type:'Washing Machine',model:'HWM90-316S6',watt:500},
+    {brand_id:6,type:'Washing Machine',model:'BMWT1013S',watt:2000},
+    {brand_id:28,type:'Washing Machine',model:'MA100W85',watt:550},
+    {brand_id:13,type:'Washing Machine',model:'EWF8024D3WB',watt:2000},
+    {brand_id:17,type:'Washing Machine',model:'WFQP8014VM',watt:2000},
+    {brand_id:40,type:'Washing Machine',model:'WA15CG5441BY',watt:550},
+    {brand_id:23,type:'Washing Machine',model:'FV1208S5W',watt:2000},
+    {brand_id:35,type:'Washing Machine',model:'NA-F100A9',watt:550},
+    {brand_id:41,type:'Washing Machine',model:'ESX107',watt:500},
+    {brand_id:6,type:'Washing Machine',model:'BMWT1214S',watt:2000},
+    {brand_id:28,type:'Washing Machine',model:'MF100W70',watt:2000},
+    {brand_id:43,type:'Washing Machine',model:'P210FLG',watt:500},
+    {brand_id:40,type:'Washing Machine',model:'WW12T504DAW',watt:2200},
+    {brand_id:23,type:'Washing Machine',model:'FV1412S4W',watt:2200},
+    {brand_id:13,type:'Washing Machine',model:'EWF1142Q7WB',watt:2200},
+    {brand_id:28,type:'Washing Machine',model:'MF200W90WB',watt:2100},
+    {brand_id:17,type:'Washing Machine',model:'WF5S1045BB',watt:2100},
+    {brand_id:41,type:'Washing Machine',model:'ES-FL1074',watt:2100},
+    {brand_id:35,type:'Washing Machine',model:'NA-V90FX1',watt:2100},
+    {brand_id:48,type:'Washing Machine',model:'TW-T21BU105UW',watt:2100},
+    {brand_id:16,type:'Washing Machine',model:'HW100-BP14929',watt:2100},
+    {brand_id:6,type:'Washing Machine',model:'B3WFU57415W',watt:2100},
+    {brand_id:23,type:'Washing Machine',model:'F2721HTWV',watt:2200},
+    {brand_id:40,type:'Washing Machine',model:'WW11BB944DGB',watt:2200},
+    {brand_id:13,type:'Washing Machine',model:'EWF1043R7WC',watt:2200},
+    {brand_id:28,type:'Washing Machine',model:'MF200D85WB',watt:2100},
+    {brand_id:17,type:'Washing Machine',model:'WFVC7010T',watt:2000},
+    {brand_id:35,type:'Washing Machine',model:'NA-128XB1',watt:2200},
+    {brand_id:23,type:'Washing Machine',model:'FV1450H2B',watt:2200},
+    {brand_id:40,type:'Washing Machine',model:'WW13BB944DG',watt:2200},
+    {brand_id:13,type:'Washing Machine',model:'EWF1143R7SC',watt:2200},
+    {brand_id:6,type:'Washing Machine',model:'B5WFT59415W',watt:2200},
+    {brand_id:41,type:'Washing Machine',model:'ES-FL1270',watt:2200},
+    {brand_id:43,type:'Washing Machine',model:'P210TLW',watt:550},
+    {brand_id:16,type:'Washing Machine',model:'HW120',watt:2200},
+    {brand_id:28,type:'Washing Machine',model:'MF210W80',watt:2200},
+    {brand_id:17,type:'Washing Machine',model:'WF7S1247BB',watt:2200},
+    {brand_id:23,type:'Washing Machine',model:'FV1450S2B',watt:2200},
+    {brand_id:40,type:'Washing Machine',model:'WW10DG6U85LK',watt:2200},
+    {brand_id:35,type:'Washing Machine',model:'NA-V10FX2',watt:2200},
+    {brand_id:13,type:'Washing Machine',model:'EWF9025DQWB',watt:2200},
+    {brand_id:28,type:'Washing Machine',model:'MF210W60',watt:2100},
+    {brand_id:41,type:'Washing Machine',model:'ES-FL1471',watt:2200},
+    {brand_id:23,type:'Washing Machine',model:'FV1414S5W',watt:2200},
+    {brand_id:40,type:'Washing Machine',model:'WW14DG6U85LK',watt:2200},
+    {brand_id:17,type:'Washing Machine',model:'WFQA1014EVJM',watt:2200},
+    {brand_id:16,type:'Washing Machine',model:'HW120-B14979',watt:2200},
+    {brand_id:23,type:'Washing Machine',model:'FV1451H3B',watt:2200},
+    {brand_id:40,type:'Washing Machine',model:'WW11DG6U85LK',watt:2200},
+    {brand_id:35,type:'Washing Machine',model:'NA-V11FX3',watt:2200},
+    {brand_id:13,type:'Washing Machine',model:'EWF1043Q7WC',watt:2200},
+    {brand_id:28,type:'Washing Machine',model:'MF210W100',watt:2200},
+    {brand_id:23,type:'Washing Machine',model:'FV1452H3B',watt:2200},
+    {brand_id:40,type:'Washing Machine',model:'WW12DG6U85LK',watt:2200},
+    {brand_id:35,type:'Washing Machine',model:'NA-V12FX3',watt:2200},
+    {brand_id:13,type:'Washing Machine',model:'EWF1143Q7SC',watt:2200},
+    {brand_id:28,type:'Washing Machine',model:'MF220W100',watt:2200},
+    {brand_id:23,type:'Washing Machine',model:'FV1455H4B',watt:2200},
+    {brand_id:40,type:'Washing Machine',model:'WW14DG8U85LK',watt:2200},
+    {brand_id:35,type:'Washing Machine',model:'NA-V14FX3',watt:2200},
+    {brand_id:13,type:'Washing Machine',model:'EWF1243Q7SC',watt:2200},
+    {brand_id:28,type:'Washing Machine',model:'MF240W120',watt:2200},
+    {brand_id:23,type:'Washing Machine',model:'FV1456H5B',watt:2200},
+    {brand_id:40,type:'Washing Machine',model:'WW16DG8U85LK',watt:2200},
+    {brand_id:35,type:'Washing Machine',model:'NA-V16FX3',watt:2200},
+    {brand_id:13,type:'Washing Machine',model:'EWF1443Q7SC',watt:2200},
+    {brand_id:28,type:'Washing Machine',model:'MF260W140',watt:2200},
+    {brand_id:2,type:'Laptop / Computer',model:'Aspire Lite AL14',watt:65},
+    {brand_id:1,type:'Laptop / Computer',model:'Vivobook 15 X1504',watt:65},
+    {brand_id:24,type:'Laptop / Computer',model:'IdeaPad Slim 3',watt:65},
+    {brand_id:15,type:'Laptop / Computer',model:'15-fd0000',watt:65},
+    {brand_id:11,type:'Laptop / Computer',model:'Inspiron 15 3530',watt:65},
+    {brand_id:5,type:'Laptop / Computer',model:'MacBook Air M3',watt:35},
+    {brand_id:24,type:'Laptop / Computer',model:'LOQ 15IRX9',watt:230},
+    {brand_id:1,type:'Laptop / Computer',model:'TUF Gaming A15 FA507',watt:240},
+    {brand_id:15,type:'Laptop / Computer',model:'Victus 15-fa',watt:200},
+    {brand_id:2,type:'Laptop / Computer',model:'Nitro V15 ANV15',watt:180},
+    {brand_id:11,type:'Laptop / Computer',model:'Latitude 3450',watt:65},
+    {brand_id:24,type:'Laptop / Computer',model:'ThinkPad E14 Gen 6',watt:65},
+    {brand_id:1,type:'Laptop / Computer',model:'Zenbook 14 OLED UX3405',watt:65},
+    {brand_id:15,type:'Laptop / Computer',model:'Pavilion 15-eg',watt:65},
+    {brand_id:26,type:'Laptop / Computer',model:'Thin 15 B12UC',watt:120},
+    {brand_id:5,type:'Laptop / Computer',model:'MacBook Pro 14 M4',watt:96},
+    {brand_id:1,type:'Laptop / Computer',model:'ROG Zephyrus G14',watt:240},
+    {brand_id:24,type:'Laptop / Computer',model:'Yoga Slim 7',watt:65},
+    {brand_id:15,type:'Laptop / Computer',model:'EliteBook 840 G11',watt:65},
+    {brand_id:11,type:'Laptop / Computer',model:'XPS 13 9340',watt:65},
+    {brand_id:2,type:'Laptop / Computer',model:'Swift Go 14',watt:65},
+    {brand_id:1,type:'Laptop / Computer',model:'Vivobook S15 OLED',watt:90},
+    {brand_id:24,type:'Laptop / Computer',model:'Legion 5i',watt:230},
+    {brand_id:15,type:'Laptop / Computer',model:'OMEN 16',watt:230},
+    {brand_id:11,type:'Laptop / Computer',model:'G15 5530',watt:240},
+    {brand_id:5,type:'Laptop / Computer',model:'MacBook Pro 16 M4 Pro',watt:140},
+    {brand_id:11,type:'Laptop / Computer',model:'Precision 3590',watt:130},
+    {brand_id:15,type:'Laptop / Computer',model:'ZBook Power G11',watt:150},
+    {brand_id:24,type:'Laptop / Computer',model:'ThinkPad P16 Gen 2',watt:170},
+    {brand_id:1,type:'Laptop / Computer',model:'ProArt P16',watt:200},
+    {brand_id:5,type:'Laptop / Computer',model:'MacBook Air 15 M3',watt:35},
+    {brand_id:2,type:'Laptop / Computer',model:'Aspire 5 A515',watt:65},
+    {brand_id:24,type:'Laptop / Computer',model:'IdeaPad Flex 5',watt:65},
+    {brand_id:1,type:'Laptop / Computer',model:'ExpertBook B1',watt:65},
+    {brand_id:15,type:'Laptop / Computer',model:'ProBook 440 G11',watt:65},
+    {brand_id:11,type:'Laptop / Computer',model:'Inspiron 14 7440',watt:65},
+    {brand_id:1,type:'Laptop / Computer',model:'Vivobook Go 15',watt:65},
+    {brand_id:24,type:'Laptop / Computer',model:'ThinkBook 14',watt:65},
+    {brand_id:15,type:'Laptop / Computer',model:'Envy x360 14',watt:65},
+    {brand_id:26,type:'Laptop / Computer',model:'Modern 15',watt:90},
+    {brand_id:5,type:'Laptop / Computer',model:'MacBook Air M2',watt:35},
+    {brand_id:1,type:'Laptop / Computer',model:'ROG Strix G16',watt:280},
+    {brand_id:2,type:'Laptop / Computer',model:'Predator Helios Neo 16',watt:330},
+    {brand_id:15,type:'Laptop / Computer',model:'Spectre x360 14',watt:65},
+    {brand_id:24,type:'Laptop / Computer',model:'Legion Pro 5',watt:300},
+    {brand_id:11,type:'Laptop / Computer',model:'Alienware m16 R2',watt:330},
+    {brand_id:15,type:'Laptop / Computer',model:'Victus 16',watt:230},
+    {brand_id:1,type:'Laptop / Computer',model:'Zenbook Duo UX8406',watt:100},
+    {brand_id:24,type:'Laptop / Computer',model:'Yoga Pro 9i',watt:140},
+    {brand_id:2,type:'Laptop / Computer',model:'Swift X 14',watt:140},
+    {brand_id:5,type:'Laptop / Computer',model:'MacBook Pro 14 M3',watt:96},
+    {brand_id:11,type:'Laptop / Computer',model:'Latitude 5450',watt:65},
+    {brand_id:15,type:'Laptop / Computer',model:'ProBook 450 G11',watt:65},
+    {brand_id:24,type:'Laptop / Computer',model:'IdeaPad Pro 5',watt:100},
+    {brand_id:1,type:'Laptop / Computer',model:'Zenbook S16',watt:90},
+    {brand_id:5,type:'Laptop / Computer',model:'Mac Studio M4 Max',watt:370},
+    {brand_id:11,type:'Laptop / Computer',model:'XPS 16 9640',watt:130},
+    {brand_id:15,type:'Laptop / Computer',model:'OMEN Transcend 14',watt:140},
+    {brand_id:24,type:'Laptop / Computer',model:'Legion 9i',watt:330},
+    {brand_id:1,type:'Laptop / Computer',model:'ROG Flow X16',watt:240},
+    {brand_id:5,type:'Laptop / Computer',model:'Mac mini M4',watt:155},
+    {brand_id:11,type:'Laptop / Computer',model:'Precision 5690',watt:165},
+    {brand_id:15,type:'Laptop / Computer',model:'EliteBook Ultra G1',watt:65},
+    {brand_id:24,type:'Laptop / Computer',model:'ThinkPad X1 Carbon Gen 12',watt:65},
+    {brand_id:1,type:'Laptop / Computer',model:'ROG Strix Scar 18',watt:330},
+    {brand_id:5,type:'Laptop / Computer',model:'MacBook Pro 16 M3 Max',watt:140},
+    {brand_id:11,type:'Laptop / Computer',model:'Latitude 7650',watt:65},
+    {brand_id:15,type:'Laptop / Computer',model:'EliteBook 860 G11',watt:65},
+    {brand_id:24,type:'Laptop / Computer',model:'ThinkPad T14 Gen 5',watt:65},
+    {brand_id:1,type:'Laptop / Computer',model:'ExpertBook B5',watt:65},
+    {brand_id:5,type:'Laptop / Computer',model:'MacBook Air 13 M4',watt:35},
+    {brand_id:11,type:'Laptop / Computer',model:'Inspiron 16 Plus 7640',watt:130},
+    {brand_id:24,type:'Laptop / Computer',model:'ThinkBook 16 Gen 7',watt:90},
+    {brand_id:1,type:'Laptop / Computer',model:'Vivobook S16 OLED',watt:90},
+    {brand_id:5,type:'Laptop / Computer',model:'iMac M4 24-inch',watt:180},
+    {brand_id:11,type:'Laptop / Computer',model:'Precision 7890 Tower',watt:900},
+    {brand_id:15,type:'Laptop / Computer',model:'ZBook Fury 16 G11',watt:230},
+    {brand_id:24,type:'Laptop / Computer',model:'ThinkStation P3',watt:750},
+    {brand_id:36,type:'Rice Cooker',model:'PRC-10D',watt:700},
+    {brand_id:35,type:'Rice Cooker',model:'SR-DF181',watt:830},
+    {brand_id:22,type:'Rice Cooker',model:'RC318',watt:700},
+    {brand_id:41,type:'Rice Cooker',model:'KS-R18ST',watt:830},
+    {brand_id:48,type:'Rice Cooker',model:'RC-18NMF',watt:760},
+    {brand_id:41,type:'Rice Cooker',model:'KSH-777',watt:700},
+    {brand_id:28,type:'Rice Cooker',model:'MB-FS5017',watt:860},
+    {brand_id:31,type:'Rice Cooker',model:'MRC-D18',watt:700},
+    {brand_id:8,type:'Rice Cooker',model:'CRC-180',watt:700},
+    {brand_id:12,type:'Rice Cooker',model:'ERC-D1831',watt:700},
+    {brand_id:35,type:'Rice Cooker',model:'SR-CN188',watt:830},
+    {brand_id:37,type:'Rice Cooker',model:'HD4515/55',watt:860},
+    {brand_id:45,type:'Rice Cooker',model:'RK7321',watt:750},
+    {brand_id:28,type:'Rice Cooker',model:'MB-FS4017',watt:700},
+    {brand_id:48,type:'Rice Cooker',model:'RC-10NMF',watt:500},
+    {brand_id:47,type:'Rice Cooker',model:'JNP-1800',watt:786},
+    {brand_id:50,type:'Rice Cooker',model:'NS-TSQ18',watt:820},
+    {brand_id:8,type:'Rice Cooker',model:'CRC-E188',watt:700},
+    {brand_id:22,type:'Rice Cooker',model:'RC188',watt:700},
+    {brand_id:36,type:'Rice Cooker',model:'PRC-18D',watt:830},
+    {brand_id:47,type:'Rice Cooker',model:'JAX-T18U',watt:850},
+    {brand_id:35,type:'Rice Cooker',model:'SR-HL151',watt:800},
+    {brand_id:28,type:'Rice Cooker',model:'MB-FS6017',watt:1000},
+    {brand_id:41,type:'Rice Cooker',model:'KS-COM19',watt:830},
+    {brand_id:37,type:'Rice Cooker',model:'HD3138/62',watt:980},
+    {brand_id:47,type:'Rice Cooker',model:'JKT-D18A',watt:1180},
+    {brand_id:50,type:'Rice Cooker',model:'NL-GAQ18',watt:820},
+    {brand_id:35,type:'Rice Cooker',model:'SR-DA182',watt:830},
+    {brand_id:41,type:'Rice Cooker',model:'KS-ZT18',watt:830},
+    {brand_id:28,type:'Rice Cooker',model:'MB-WFS5017',watt:860},
+    {brand_id:47,type:'Rice Cooker',model:'JBV-A18S',watt:790},
+    {brand_id:35,type:'Rice Cooker',model:'SR-Y22FG',watt:900},
+    {brand_id:45,type:'Rice Cooker',model:'RK818A',watt:1200},
+    {brand_id:8,type:'Rice Cooker',model:'CRC-S188',watt:700},
+    {brand_id:31,type:'Rice Cooker',model:'MRC-28',watt:900},
+    {brand_id:41,type:'Rice Cooker',model:'KS-N18',watt:700},
+    {brand_id:36,type:'Rice Cooker',model:'PRC-18E',watt:830},
+    {brand_id:37,type:'Rice Cooker',model:'HD4518/62',watt:900},
+    {brand_id:48,type:'Rice Cooker',model:'RC-18DH1',watt:760},
+    {brand_id:47,type:'Rice Cooker',model:'JKT-S18A',watt:1180},
+    {brand_id:35,type:'Rice Cooker',model:'SR-HZ106',watt:700},
+    {brand_id:47,type:'Rice Cooker',model:'JBV-S10A',watt:650},
+    {brand_id:50,type:'Rice Cooker',model:'NP-HRQ10',watt:1240},
+    {brand_id:28,type:'Rice Cooker',model:'MB-WFS4018',watt:700},
+    {brand_id:8,type:'Rice Cooker',model:'CRC-S108',watt:500},
+    {brand_id:47,type:'Rice Cooker',model:'JKT-P10A',watt:1080},
+    {brand_id:35,type:'Rice Cooker',model:'SR-AF181',watt:830},
+    {brand_id:37,type:'Rice Cooker',model:'HD3170/62',watt:900},
+    {brand_id:41,type:'Rice Cooker',model:'KS-ZT10',watt:700},
+    {brand_id:36,type:'Rice Cooker',model:'PRC-28E',watt:1000},
+    {brand_id:47,type:'Rice Cooker',model:'JBX-B18A',watt:790},
+    {brand_id:35,type:'Rice Cooker',model:'SR-WA18H',watt:700},
+    {brand_id:37,type:'Rice Cooker',model:'HD3119/62',watt:700},
+    {brand_id:41,type:'Rice Cooker',model:'KS-NR18',watt:830},
+    {brand_id:28,type:'Rice Cooker',model:'MB-WFS6018',watt:1000},
+    {brand_id:47,type:'Rice Cooker',model:'JPL-A18W',watt:1210},
+    {brand_id:35,type:'Rice Cooker',model:'SR-CL188',watt:830},
+    {brand_id:37,type:'Rice Cooker',model:'HD4528/62',watt:900},
+    {brand_id:41,type:'Rice Cooker',model:'KS-COM20',watt:900},
+    {brand_id:36,type:'Rice Cooker',model:'PRC-30E',watt:1000},
+    {brand_id:47,type:'Rice Cooker',model:'JPK-W18W',watt:1210},
+    {brand_id:35,type:'Rice Cooker',model:'SR-DY181',watt:700},
+    {brand_id:37,type:'Rice Cooker',model:'HD4539/62',watt:900},
+    {brand_id:41,type:'Rice Cooker',model:'KS-TH18',watt:900},
+    {brand_id:28,type:'Rice Cooker',model:'MB-WFS7018',watt:1000},
+    {brand_id:47,type:'Rice Cooker',model:'JBX-A18S',watt:790},
+    {brand_id:35,type:'Rice Cooker',model:'SR-Y18FG',watt:830},
+    {brand_id:37,type:'Rice Cooker',model:'HD4520/62',watt:900},
+    {brand_id:41,type:'Rice Cooker',model:'KS-Z18',watt:830},
+    {brand_id:28,type:'Rice Cooker',model:'MB-WFS8018',watt:1000},
+    {brand_id:35,type:'Rice Cooker',model:'SR-CX188',watt:830},
+    {brand_id:37,type:'Rice Cooker',model:'HD4548/62',watt:900},
+    {brand_id:41,type:'Rice Cooker',model:'KS-COM18',watt:900},
+    {brand_id:28,type:'Rice Cooker',model:'MB-FS5018',watt:860},
+    {brand_id:47,type:'Rice Cooker',model:'JPL-H18W',watt:1300},
+    {brand_id:37,type:'Rice Cooker',model:'HD4558/62',watt:950},
+    {brand_id:41,type:'Rice Cooker',model:'KS-TH20',watt:950},
+    {brand_id:28,type:'Rice Cooker',model:'MB-FS6018',watt:900},
+    {brand_id:37,type:'Electric Kettle',model:'HD9350/90',watt:2200},
+    {brand_id:28,type:'Electric Kettle',model:'MK-17S30A',watt:2200},
+    {brand_id:22,type:'Electric Kettle',model:'EK582',watt:2200},
+    {brand_id:45,type:'Electric Kettle',model:'KO2608',watt:2400},
+    {brand_id:35,type:'Electric Kettle',model:'NC-GK1',watt:2200},
+    {brand_id:49,type:'Electric Kettle',model:'Mi Electric Kettle 2',watt:1800},
+    {brand_id:48,type:'Electric Kettle',model:'PLK-17FL',watt:2200},
+    {brand_id:8,type:'Electric Kettle',model:'CCK-E1700X',watt:2200},
+    {brand_id:31,type:'Electric Kettle',model:'MCJ-MN17',watt:2200},
+    {brand_id:12,type:'Electric Kettle',model:'EJK-F1883',watt:2200},
+    {brand_id:37,type:'Electric Kettle',model:'HD9316/03',watt:1800},
+    {brand_id:36,type:'Electric Kettle',model:'PKT-1701',watt:2200},
+    {brand_id:28,type:'Electric Kettle',model:'MK-17D18A',watt:2200},
+    {brand_id:22,type:'Electric Kettle',model:'EK721',watt:2200},
+    {brand_id:45,type:'Electric Kettle',model:'KI431D',watt:2400},
+    {brand_id:14,type:'Electric Kettle',model:'FKA Pluto',watt:2200},
+    {brand_id:13,type:'Electric Kettle',model:'EEK1303W',watt:2200},
+    {brand_id:39,type:'Electric Kettle',model:'RT-18K',watt:2200},
+    {brand_id:6,type:'Electric Kettle',model:'WKM4321W',watt:2200},
+    {brand_id:32,type:'Electric Kettle',model:'Equip Kettle',watt:2200},
+    {brand_id:35,type:'Electric Kettle',model:'NC-K301',watt:2200},
+    {brand_id:49,type:'Electric Kettle',model:'Mi Smart Kettle Pro',watt:1800},
+    {brand_id:8,type:'Electric Kettle',model:'CKE-S17',watt:2200},
+    {brand_id:14,type:'Electric Kettle',model:'FKA Nova',watt:2200},
+    {brand_id:31,type:'Electric Kettle',model:'MJK-E17',watt:2200},
+    {brand_id:37,type:'Electric Kettle',model:'HD9365/20',watt:2200},
+    {brand_id:45,type:'Electric Kettle',model:'KI772D',watt:2400},
+    {brand_id:32,type:'Electric Kettle',model:'102783',watt:2200},
+    {brand_id:39,type:'Electric Kettle',model:'RT-EK22',watt:2200},
+    {brand_id:36,type:'Electric Kettle',model:'PKS-1702',watt:2200},
+    {brand_id:35,type:'Electric Kettle',model:'NC-HKD121',watt:2200},
+    {brand_id:22,type:'Electric Kettle',model:'EK800',watt:2200},
+    {brand_id:12,type:'Electric Kettle',model:'EJK-F1885',watt:2200},
+    {brand_id:37,type:'Electric Kettle',model:'HD9396/90',watt:2200},
+    {brand_id:28,type:'Electric Kettle',model:'MK-HJ1705',watt:2200},
+    {brand_id:45,type:'Electric Kettle',model:'KO8508',watt:2400},
+    {brand_id:35,type:'Electric Kettle',model:'NC-EG3000',watt:700},
+    {brand_id:32,type:'Electric Kettle',model:'102784',watt:2200},
+    {brand_id:8,type:'Electric Kettle',model:'CKE-S18',watt:2200},
+    {brand_id:39,type:'Electric Kettle',model:'RT-EK25',watt:2200},
+    {brand_id:37,type:'Electric Kettle',model:'HD9306/03',watt:1800},
+    {brand_id:35,type:'Electric Kettle',model:'NC-SK1',watt:2200},
+    {brand_id:22,type:'Electric Kettle',model:'EK560',watt:2200},
+    {brand_id:31,type:'Electric Kettle',model:'MJK-E20',watt:2200},
+    {brand_id:12,type:'Electric Kettle',model:'EJK-F1888',watt:2200},
+    {brand_id:45,type:'Electric Kettle',model:'KO6931',watt:2400},
+    {brand_id:28,type:'Electric Kettle',model:'MK17S31A',watt:2200},
+    {brand_id:39,type:'Electric Kettle',model:'RT-EK30',watt:2200},
+    {brand_id:8,type:'Electric Kettle',model:'CKE-S20',watt:2200},
+    {brand_id:32,type:'Electric Kettle',model:'Equip Plus',watt:2200},
+    {brand_id:37,type:'Electric Kettle',model:'HD9359/90',watt:2200},
+    {brand_id:35,type:'Electric Kettle',model:'NC-K101',watt:2200},
+    {brand_id:22,type:'Electric Kettle',model:'EK900',watt:2200},
+    {brand_id:8,type:'Electric Kettle',model:'CKE-S22',watt:2200},
+    {brand_id:45,type:'Electric Kettle',model:'KO2601',watt:2400},
+    {brand_id:39,type:'Electric Kettle',model:'RT-EK35',watt:2200},
+    {brand_id:32,type:'Electric Kettle',model:'Equip Max',watt:2200},
+    {brand_id:28,type:'Electric Kettle',model:'MK17S50A',watt:2200},
+    {brand_id:12,type:'Electric Kettle',model:'EJK-F1890',watt:2200},
+    {brand_id:14,type:'Electric Kettle',model:'FKA Elite',watt:2200},
+    {brand_id:37,type:'Electric Kettle',model:'HD9366/90',watt:2200},
+    {brand_id:35,type:'Electric Kettle',model:'NC-K301G',watt:2200},
+    {brand_id:22,type:'Electric Kettle',model:'EK950',watt:2200},
+    {brand_id:45,type:'Electric Kettle',model:'KI150D',watt:2400},
+    {brand_id:8,type:'Electric Kettle',model:'CKE-S25',watt:2200},
+    {brand_id:37,type:'Electric Kettle',model:'HD9370/90',watt:2200},
+    {brand_id:35,type:'Electric Kettle',model:'NC-K401',watt:2200},
+    {brand_id:22,type:'Electric Kettle',model:'EK1000',watt:2200},
+    {brand_id:45,type:'Electric Kettle',model:'KI240D',watt:2400},
+    {brand_id:8,type:'Electric Kettle',model:'CKE-S30',watt:2200},
+    {brand_id:37,type:'Electric Kettle',model:'HD9395/90',watt:2200},
+    {brand_id:35,type:'Electric Kettle',model:'NC-HU301P',watt:910},
+    {brand_id:22,type:'Electric Kettle',model:'EK1200',watt:2200},
+    {brand_id:45,type:'Electric Kettle',model:'KI740D',watt:2400},
+    {brand_id:8,type:'Electric Kettle',model:'CKE-S35',watt:2200},
+    {brand_id:37,type:'Electric Kettle',model:'HD9411/70',watt:2200},
+    {brand_id:35,type:'Electric Kettle',model:'NC-HU401P',watt:910},
+    {brand_id:22,type:'Electric Kettle',model:'EK1500',watt:2200},
+    {brand_id:45,type:'Electric Kettle',model:'KI830D',watt:2400},
+    {brand_id:8,type:'Electric Kettle',model:'CKE-S40',watt:2200},
+    {brand_id:37,type:'Lighting (LED)',model:'Essential 9W',watt:9},
+    {brand_id:35,type:'Lighting (LED)',model:'LED Bulb 12W',watt:12},
+    {brand_id:34,type:'Lighting (LED)',model:'LED Star 13W',watt:13},
+    {brand_id:37,type:'Lighting (LED)',model:'Essential 13W',watt:13},
+    {brand_id:34,type:'Lighting (LED)',model:'LED Star 9W',watt:9},
+    {brand_id:35,type:'Lighting (LED)',model:'LED Bulb 9W',watt:9},
+    {brand_id:34,type:'Lighting (LED)',model:'LED Value 12W',watt:12},
+    {brand_id:37,type:'Lighting (LED)',model:'CorePro LED 18W',watt:18},
+    {brand_id:35,type:'Lighting (LED)',model:'EverLED 14W',watt:14},
+    {brand_id:34,type:'Lighting (LED)',model:'LED Value 18W',watt:18},
+    {brand_id:35,type:'Lighting (LED)',model:'EverLED 18W',watt:18},
+    {brand_id:37,type:'Lighting (LED)',model:'Essential 18W',watt:18},
+    {brand_id:37,type:'Lighting (LED)',model:'CorePro LED 9W',watt:9},
+    {brand_id:34,type:'Lighting (LED)',model:'LED Star 15W',watt:15},
+    {brand_id:35,type:'Lighting (LED)',model:'EverLED 9W',watt:9},
+    {brand_id:37,type:'Lighting (LED)',model:'CorePro LED 12W',watt:12},
+    {brand_id:34,type:'Lighting (LED)',model:'LED Star 20W',watt:20},
+    {brand_id:35,type:'Lighting (LED)',model:'EverLED 20W',watt:20},
+    {brand_id:37,type:'Lighting (LED)',model:'LED 15W',watt:15},
+    {brand_id:34,type:'Lighting (LED)',model:'LED 24W',watt:24},
+    {brand_id:35,type:'Lighting (LED)',model:'LED 24W',watt:24},
+    {brand_id:34,type:'Lighting (LED)',model:'LED 30W',watt:30},
+    {brand_id:35,type:'Lighting (LED)',model:'LED 30W',watt:30},
+    {brand_id:37,type:'Lighting (LED)',model:'LED 24W',watt:24},
+    {brand_id:37,type:'Lighting (LED)',model:'LED 36W',watt:36},
+    {brand_id:34,type:'Lighting (LED)',model:'LED 36W',watt:36},
+    {brand_id:35,type:'Lighting (LED)',model:'LED 36W',watt:36},
+    {brand_id:34,type:'Lighting (LED)',model:'LED 40W',watt:40},
+    {brand_id:37,type:'Lighting (LED)',model:'LED 40W',watt:40},
+    {brand_id:35,type:'Lighting (LED)',model:'LED 40W',watt:40},
+    {brand_id:37,type:'Lighting (LED)',model:'LED 50W',watt:50},
+    {brand_id:34,type:'Lighting (LED)',model:'LED 50W',watt:50},
+    {brand_id:35,type:'Lighting (LED)',model:'LED 60W',watt:60},
+    {brand_id:37,type:'Lighting (LED)',model:'LED 70W',watt:70},
+    {brand_id:34,type:'Lighting (LED)',model:'LED 70W',watt:70},
+    {brand_id:35,type:'Lighting (LED)',model:'LED 70W',watt:70},
+    {brand_id:37,type:'Lighting (LED)',model:'LED 80W',watt:80},
+    {brand_id:34,type:'Lighting (LED)',model:'LED 80W',watt:80},
+    {brand_id:35,type:'Lighting (LED)',model:'LED 80W',watt:80},
+    {brand_id:37,type:'Lighting (LED)',model:'LED 90W',watt:90},
+    {brand_id:34,type:'Lighting (LED)',model:'LED 90W',watt:90},
+    {brand_id:35,type:'Lighting (LED)',model:'LED 90W',watt:90},
+    {brand_id:37,type:'Lighting (LED)',model:'LED 100W',watt:100},
+    {brand_id:34,type:'Lighting (LED)',model:'LED 100W',watt:100},
+    {brand_id:35,type:'Lighting (LED)',model:'LED 100W',watt:100},
+    {brand_id:40,type:'Television',model:'UA55DU7700',watt:145},
+    {brand_id:23,type:'Television',model:'55UT8050',watt:150},
+    {brand_id:42,type:'Television',model:'KD-55X75K',watt:150},
+    {brand_id:43,type:'Television',model:'55P755',watt:145},
+    {brand_id:17,type:'Television',model:'55A6N',watt:140},
+    {brand_id:49,type:'Television',model:'TV A Pro 55',watt:130},
+    {brand_id:23,type:'Television',model:'43UT8050',watt:85},
+    {brand_id:40,type:'Television',model:'UA43DU7700',watt:95},
+    {brand_id:42,type:'Television',model:'KD-43X75K',watt:100},
+    {brand_id:17,type:'Television',model:'50A6N',watt:110},
+    {brand_id:43,type:'Television',model:'50P755',watt:110},
+    {brand_id:49,type:'Television',model:'TV A Pro 43',watt:85},
+    {brand_id:42,type:'Television',model:'KD-50X75K',watt:110},
+    {brand_id:43,type:'Television',model:'43P755',watt:85},
+    {brand_id:40,type:'Television',model:'UA65DU7700',watt:180},
+    {brand_id:42,type:'Television',model:'KD-65X75K',watt:180},
+    {brand_id:17,type:'Television',model:'65A6N',watt:170},
+    {brand_id:23,type:'Television',model:'65UT8050',watt:180},
+    {brand_id:40,type:'Television',model:'UA50DU7700',watt:110},
+    {brand_id:43,type:'Television',model:'65P755',watt:180},
+    {brand_id:42,type:'Television',model:'KD-43X80L',watt:120},
+    {brand_id:23,type:'Television',model:'75UT8050',watt:220},
+    {brand_id:17,type:'Television',model:'75A6N',watt:220},
+    {brand_id:49,type:'Television',model:'TV Max 85',watt:320},
+    {brand_id:40,type:'Television',model:'QA55Q70D',watt:170},
+    {brand_id:42,type:'Television',model:'KD-55X85L',watt:170},
+    {brand_id:23,type:'Television',model:'OLED55C4',watt:175},
+    {brand_id:43,type:'Television',model:'75C755',watt:260},
+    {brand_id:40,type:'Television',model:'UA75DU7700',watt:220},
+    {brand_id:42,type:'Television',model:'KD-75X80L',watt:230},
+    {brand_id:23,type:'Television',model:'OLED65C4',watt:220},
+    {brand_id:17,type:'Television',model:'85A6N',watt:300},
+    {brand_id:40,type:'Television',model:'QA65Q80D',watt:210},
+    {brand_id:42,type:'Television',model:'KD-65X90L',watt:220},
+    {brand_id:23,type:'Television',model:'OLED77C4',watt:300},
+    {brand_id:40,type:'Television',model:'QA75Q80D',watt:260},
+    {brand_id:42,type:'Television',model:'KD-75X90L',watt:280},
+    {brand_id:23,type:'Television',model:'OLED83C4',watt:360},
+    {brand_id:40,type:'Television',model:'QA85Q80D',watt:320},
+    {brand_id:42,type:'Television',model:'KD-85X90L',watt:330},
+    {brand_id:23,type:'Television',model:'OLED83G4',watt:380},
+    {brand_id:40,type:'Television',model:'QN90D 85',watt:360},
+    {brand_id:42,type:'Television',model:'BRAVIA 9 85',watt:400},
+    {brand_id:23,type:'Television',model:'OLED97G4',watt:650},
+    {brand_id:44,type:'WiFi Router',model:'Archer AX23',watt:12},
+    {brand_id:9,type:'WiFi Router',model:'DIR-X1560',watt:12},
+    {brand_id:1,type:'WiFi Router',model:'RT-AX53U',watt:18},
+    {brand_id:19,type:'WiFi Router',model:'AX3 Quad-Core',watt:12},
+    {brand_id:44,type:'WiFi Router',model:'Archer AX55',watt:18},
+    {brand_id:9,type:'WiFi Router',model:'DIR-X3000Z',watt:18},
+    {brand_id:44,type:'WiFi Router',model:'Deco X20',watt:12},
+    {brand_id:1,type:'WiFi Router',model:'RT-AX58U',watt:18},
+    {brand_id:33,type:'WiFi Router',model:'RAX10',watt:18},
+    {brand_id:27,type:'WiFi Router',model:'MR70X',watt:12},
+    {brand_id:46,type:'WiFi Router',model:'RX2 Pro',watt:12},
+    {brand_id:25,type:'WiFi Router',model:'MR7350',watt:18},
+    {brand_id:44,type:'WiFi Router',model:'Deco X50',watt:15},
+    {brand_id:1,type:'WiFi Router',model:'RT-AX82U',watt:27},
+    {brand_id:33,type:'WiFi Router',model:'RAX50',watt:30},
+    {brand_id:44,type:'WiFi Router',model:'Archer AX72',watt:18},
+    {brand_id:1,type:'WiFi Router',model:'RT-AX88U',watt:35},
+    {brand_id:27,type:'WiFi Router',model:'MR80X',watt:18},
+    {brand_id:44,type:'WiFi Router',model:'Archer BE230',watt:20},
+    {brand_id:9,type:'WiFi Router',model:'DIR-X5460',watt:20},
+    {brand_id:1,type:'WiFi Router',model:'ZenWiFi XT8',watt:33},
+    {brand_id:44,type:'WiFi Router',model:'Deco XE75',watt:24},
+    {brand_id:44,type:'WiFi Router',model:'Archer AX90',watt:30},
+    {brand_id:1,type:'WiFi Router',model:'RT-BE88U',watt:40},
+    {brand_id:33,type:'WiFi Router',model:'Nighthawk RS300',watt:35},
+    {brand_id:27,type:'WiFi Router',model:'Halo H90X',watt:18},
+    {brand_id:44,type:'WiFi Router',model:'Deco BE65',watt:25},
+    {brand_id:49,type:'WiFi Router',model:'Router BE6500',watt:22},
+    {brand_id:44,type:'WiFi Router',model:'Archer BE550',watt:25},
+    {brand_id:1,type:'WiFi Router',model:'RT-BE86U',watt:35},
+    {brand_id:49,type:'WiFi Router',model:'BE7000',watt:22},
+    {brand_id:27,type:'WiFi Router',model:'MR90X',watt:20},
+    {brand_id:44,type:'WiFi Router',model:'Deco BE85',watt:30},
+    {brand_id:33,type:'WiFi Router',model:'RS700',watt:45},
+    {brand_id:44,type:'WiFi Router',model:'Archer BE800',watt:32},
+    {brand_id:1,type:'WiFi Router',model:'RT-BE92U',watt:38},
+    {brand_id:33,type:'WiFi Router',model:'RS600',watt:40},
+    {brand_id:44,type:'WiFi Router',model:'Archer BE900',watt:40},
+    {brand_id:1,type:'WiFi Router',model:'ROG Rapture GT-BE98',watt:60},
+    {brand_id:33,type:'WiFi Router',model:'Orbi 970',watt:55},
+    {brand_id:44,type:'WiFi Router',model:'Deco BE95',watt:35},
+    {brand_id:1,type:'WiFi Router',model:'ZenWiFi BQ16',watt:45},
+    {brand_id:33,type:'WiFi Router',model:'Orbi 980',watt:60},
+    {brand_id:44,type:'WiFi Router',model:'Deco BE95 Pro',watt:40},
+    {brand_id:1,type:'WiFi Router',model:'ROG Rapture GT-BE19000',watt:65},
+    {brand_id:33,type:'WiFi Router',model:'Nighthawk RS700S',watt:50},
+    {brand_id:35,type:'Other',model:'NN-ST65QB',watt:1000},
+    {brand_id:37,type:'Other',model:'HD9252/91',watt:1400},
+    {brand_id:45,type:'Other',model:'EY201D',watt:1500},
+    {brand_id:41,type:'Other',model:'R-21A0(S)',watt:1000},
+    {brand_id:23,type:'Other',model:'MS2042DB',watt:700},
+    {brand_id:49,type:'Other',model:'Mi Smart Air Fryer 3.5L',watt:1500},
+    {brand_id:35,type:'Other',model:'NN-ST67JS',watt:1000},
+    {brand_id:40,type:'Other',model:'MS32DG4504AT',watt:1000},
+    {brand_id:37,type:'Other',model:'NA231/00',watt:1700},
+    {brand_id:41,type:'Other',model:'R-75MT',watt:900},
+    {brand_id:45,type:'Other',model:'EY505D',watt:1550},
+    {brand_id:35,type:'Other',model:'NN-GD38HS',watt:1000},
+    {brand_id:37,type:'Other',model:'NA120/00',watt:1500},
+    {brand_id:35,type:'Other',model:'NN-ST75LB',watt:1000},
+    {brand_id:49,type:'Other',model:'Smart Air Fryer 6.5L',watt:1800},
+    {brand_id:40,type:'Other',model:'MG23T5018CK',watt:900},
+    {brand_id:23,type:'Other',model:'MH6565DIS',watt:1200},
+    {brand_id:35,type:'Other',model:'NN-GT78LS',watt:1000},
+    {brand_id:37,type:'Other',model:'NA332/00',watt:2000},
+    {brand_id:35,type:'Other',model:'NN-CT56JB',watt:1000},
+    {brand_id:40,type:'Other',model:'MC32DG7646CK',watt:1400},
+    {brand_id:23,type:'Other',model:'NeoChef MJ3965ACS',watt:1350},
+    {brand_id:41,type:'Other',model:'R-890E',watt:1100},
+    {brand_id:28,type:'Other',model:'AF-605B',watt:1700},
+    {brand_id:45,type:'Other',model:'EY855D',watt:2020},
+    {brand_id:49,type:'Other',model:'Air Fryer 6L',watt:1600},
+    {brand_id:36,type:'Other',model:'PMW-2008',watt:800},
+    {brand_id:8,type:'Other',model:'CMO-E201',watt:800},
+    {brand_id:12,type:'Other',model:'EMO-B2810',watt:900},
+    {brand_id:13,type:'Other',model:'EMM2331MK',watt:800},
+    {brand_id:6,type:'Other',model:'MOC20100B',watt:700},
+    {brand_id:17,type:'Other',model:'H28MOBS9H',watt:900},
+    {brand_id:48,type:'Other',model:'ER-SS23',watt:900},
+    {brand_id:14,type:'Other',model:'FMC25DG',watt:900},
+    {brand_id:31,type:'Other',model:'MMO-25L',watt:900},
+    {brand_id:39,type:'Other',model:'AF-35',watt:1800},
+    {brand_id:32,type:'Other',model:'Air Fryer 5L',watt:1500},
+    {brand_id:37,type:'Other',model:'HD9280/91',watt:2000},
+    {brand_id:35,type:'Other',model:'NN-DF383B',watt:1000},
+    {brand_id:40,type:'Other',model:'MS30T5018AK',watt:900},
+    {brand_id:23,type:'Other',model:'MH6535GIS',watt:1150},
+    {brand_id:41,type:'Other',model:'R-959SLM',watt:1100},
+    {brand_id:28,type:'Other',model:'MC35J',watt:1500},
+    {brand_id:45,type:'Other',model:'EY401D',watt:1500},
+    {brand_id:49,type:'Other',model:'Smart Oven 32L',watt:1600},
+    {brand_id:36,type:'Other',model:'PAF-3000',watt:1800},
+    {brand_id:8,type:'Other',model:'CAF-S5000',watt:1800},
+    {brand_id:12,type:'Other',model:'EAF-K6029D',watt:1800},
+    {brand_id:13,type:'Other',model:'E6AF1-520K',watt:1800},
+    {brand_id:6,type:'Other',model:'FRL2244B',watt:1500},
+    {brand_id:17,type:'Other',model:'H20MOBS11',watt:700},
+    {brand_id:48,type:'Other',model:'ER-TD7000',watt:1800},
+    {brand_id:14,type:'Other',model:'FAF40L',watt:1800},
+    {brand_id:31,type:'Other',model:'MO-42RC',watt:1800},
+    {brand_id:39,type:'Other',model:'OV-80',watt:2200},
+    {brand_id:32,type:'Other',model:'Oven 42L',watt:2000},
+    {brand_id:37,type:'Other',model:'HD9650/91',watt:2225},
+    {brand_id:35,type:'Other',model:'NN-CD87KS',watt:1000},
+    {brand_id:40,type:'Other',model:'MG28F303TAS',watt:1500},
+    {brand_id:23,type:'Other',model:'MJEN326SF',watt:1350},
+    {brand_id:41,type:'Other',model:'R-78BT',watt:1000},
+    {brand_id:28,type:'Other',model:'MO-35RH',watt:1800},
+    {brand_id:45,type:'Other',model:'OF500E',watt:2000},
+    {brand_id:49,type:'Other',model:'Smart Microwave',watt:1100},
+    {brand_id:36,type:'Other',model:'PEO-6300',watt:2000},
+    {brand_id:8,type:'Other',model:'CEO-E602',watt:2000},
+    {brand_id:12,type:'Other',model:'EOV-EL80D',watt:2200},
+    {brand_id:13,type:'Other',model:'EOE5H40BX',watt:2500},
+    {brand_id:37,type:'Other',model:'NA555/00',watt:2200},
+    {brand_id:35,type:'Other',model:'NN-DS59NB',watt:1000},
+    {brand_id:40,type:'Other',model:'MC35R8088LC',watt:1500},
+    {brand_id:23,type:'Other',model:'MJ3965BPS',watt:1350},
+    {brand_id:41,type:'Other',model:'R-995DST',watt:1100},
+    {brand_id:28,type:'Other',model:'AF-706B',watt:1800},
+    {brand_id:45,type:'Other',model:'EY905D',watt:2000},
+    {brand_id:49,type:'Other',model:'Smart Air Fryer 8L',watt:1800},
+    {brand_id:36,type:'Other',model:'PAF-4000',watt:2000},
+    {brand_id:8,type:'Other',model:'CAF-S6000',watt:2000},
+    {brand_id:12,type:'Other',model:'EAF-K7029D',watt:2000},
+    {brand_id:13,type:'Other',model:'E7AF1-850P',watt:2000},
+    {brand_id:6,type:'Other',model:'FRL5388B',watt:1800},
+    {brand_id:17,type:'Other',model:'H30MOMS9H',watt:900},
+    {brand_id:48,type:'Other',model:'ER-VS23',watt:900},
+    {brand_id:14,type:'Other',model:'FAF50L',watt:2000},
+    {brand_id:31,type:'Other',model:'MO-50RC',watt:2000},
+    {brand_id:39,type:'Other',model:'AF-50',watt:2000},
+    {brand_id:32,type:'Other',model:'Air Fryer 7L',watt:1800},
+    {brand_id:37,type:'Other',model:'HD9880/90',watt:2200},
+    {brand_id:35,type:'Other',model:'NN-CF87LB',watt:1000},
+    {brand_id:40,type:'Other',model:'MG40DG5524AT',watt:1500},
+    {brand_id:23,type:'Other',model:'NeoChef MS4296',watt:1200},
+    {brand_id:41,type:'Other',model:'R-889SLM',watt:1100},
+    {brand_id:28,type:'Other',model:'MO-45RH',watt:2000},
+    {brand_id:45,type:'Other',model:'OF620E',watt:2200},
+    {brand_id:49,type:'Other',model:'Smart Oven 40L',watt:1800},
+    {brand_id:36,type:'Other',model:'PEO-7000',watt:2200},
+    {brand_id:8,type:'Other',model:'CEO-E702',watt:2200},
+    {brand_id:12,type:'Other',model:'EOV-EL90D',watt:2400},
+    {brand_id:13,type:'Other',model:'EOE7P31X',watt:3000},
+    {brand_id:35,type:'Other',model:'NN-ST78LS',watt:1000},
+    {brand_id:40,type:'Other',model:'MS32DG4504AK',watt:1000},
+    {brand_id:23,type:'Other',model:'MH8265CIS',watt:1200},
+    {brand_id:41,type:'Other',model:'R-959IN',watt:1100},
+    {brand_id:28,type:'Other',model:'MC45J',watt:1800},
+    {brand_id:45,type:'Other',model:'EY801D',watt:1830},
+    {brand_id:49,type:'Other',model:'Microwave 23L',watt:1100},
+    {brand_id:36,type:'Other',model:'PMW-2010',watt:900},
+    {brand_id:8,type:'Other',model:'CMO-E251',watt:900},
+    {brand_id:12,type:'Other',model:'EMO-B3000',watt:1000},
+    {brand_id:13,type:'Other',model:'EMM2525VX',watt:900},
+    {brand_id:6,type:'Other',model:'MGB25333BG',watt:900},
+    {brand_id:17,type:'Other',model:'H25MOBS7HG',watt:900},
+    {brand_id:48,type:'Other',model:'ER-SGS23',watt:900},
+    {brand_id:14,type:'Other',model:'FMC30DG',watt:1000},
+    {brand_id:31,type:'Other',model:'MMO-30L',watt:1000},
+    {brand_id:39,type:'Other',model:'OV-100',watt:2400},
+    {brand_id:32,type:'Other',model:'Oven 52L',watt:2200},
+    {brand_id:37,type:'Other',model:'HD9270/91',watt:2000},
+    {brand_id:35,type:'Other',model:'NN-GT98LS',watt:1000},
+    {brand_id:37,type:'Other',model:'NA552/00',watt:2200},
+    {brand_id:35,type:'Other',model:'NN-DF58JB',watt:1000},
+    {brand_id:40,type:'Other',model:'MC40DG5525AT',watt:1500},
+    {brand_id:23,type:'Other',model:'NeoChef MS4297',watt:1200},
+    {brand_id:41,type:'Other',model:'R-77AT',watt:1000},
+    {brand_id:28,type:'Other',model:'AF-808B',watt:2000},
+    {brand_id:45,type:'Other',model:'EY942D',watt:2000},
+    {brand_id:49,type:'Other',model:'Smart Steam Oven 30L',watt:1800},
+    {brand_id:36,type:'Other',model:'PAF-5000',watt:2000},
+    {brand_id:8,type:'Other',model:'CAF-S7000',watt:2000},
+    {brand_id:12,type:'Other',model:'EAF-K8029D',watt:2000},
+    {brand_id:13,type:'Other',model:'E8AF1-920P',watt:2200},
+    {brand_id:6,type:'Other',model:'FRL6500B',watt:1800},
+    {brand_id:17,type:'Other',model:'H32MOMS9H',watt:1000},
+    {brand_id:48,type:'Other',model:'ER-YD7000',watt:1800},
+    {brand_id:14,type:'Other',model:'FAF60L',watt:2200},
+    {brand_id:31,type:'Other',model:'MO-60RC',watt:2200},
+    {brand_id:39,type:'Other',model:'AF-60',watt:2200},
+    {brand_id:32,type:'Other',model:'Air Fryer 8L',watt:2000},
+    {brand_id:37,type:'Other',model:'HD9904/01',watt:1800},
+    {brand_id:35,type:'Other',model:'NN-GF574M',watt:1000},
+    {brand_id:40,type:'Other',model:'MS30A3010AK',watt:1000},
+    {brand_id:23,type:'Other',model:'MJ3965BIB',watt:1350},
+    {brand_id:41,type:'Other',model:'R-92A0',watt:1100},
+    {brand_id:28,type:'Other',model:'MO-50RH',watt:2000},
+    {brand_id:45,type:'Other',model:'OF695E',watt:2400},
+    {brand_id:49,type:'Other',model:'Smart Grill Oven',watt:1700},
+    {brand_id:36,type:'Other',model:'PEO-8000',watt:2400},
+    {brand_id:8,type:'Other',model:'CEO-E802',watt:2400},
+    {brand_id:12,type:'Other',model:'EOV-EL100D',watt:2500},
+    {brand_id:13,type:'Other',model:'KOFGH40TX',watt:2800},
+    {brand_id:6,type:'Other',model:'BBIM12300X',watt:2400},
+    {brand_id:17,type:'Other',model:'H28MOWS10',watt:900},
+    {brand_id:48,type:'Other',model:'ER-TD5000',watt:1800},
+    {brand_id:14,type:'Other',model:'FMC35DG',watt:1000},
+    {brand_id:31,type:'Other',model:'MMO-35L',watt:1000},
+    {brand_id:39,type:'Other',model:'OV-120',watt:2500},
+    {brand_id:32,type:'Other',model:'Oven 60L',watt:2400},
+    {brand_id:37,type:'Other',model:'HD9257/80',watt:1700},
+    {brand_id:35,type:'Other',model:'NN-ST86QB',watt:1000},
+    {brand_id:40,type:'Other',model:'MG30T5018CK',watt:1400},
+    {brand_id:41,type:'Other',model:'R-21A0',watt:1000},
+    {brand_id:28,type:'Other',model:'MC55J',watt:1800},
+    {brand_id:45,type:'Other',model:'EY701D',watt:1700},
+    {brand_id:49,type:'Other',model:'Microwave 25L',watt:1150},
+    {brand_id:36,type:'Other',model:'PMW-2500',watt:900},
+    {brand_id:8,type:'Other',model:'CMO-E301',watt:1000},
+    {brand_id:37,type:'Other',model:'NA555/90',watt:2200},
+    {brand_id:35,type:'Other',model:'NN-CD88KS',watt:1000},
+    {brand_id:40,type:'Other',model:'MC35DG7646CK',watt:1500},
+    {brand_id:23,type:'Other',model:'NeoChef MJ3965BGS',watt:1350},
+    {brand_id:41,type:'Other',model:'R-98ST',watt:1200},
+    {brand_id:28,type:'Other',model:'AF-1008B',watt:2000},
+    {brand_id:45,type:'Other',model:'EY905B',watt:2000},
+    {brand_id:49,type:'Other',model:'Smart Steam Oven Pro',watt:2000},
+    {brand_id:36,type:'Other',model:'PAF-6000',watt:2200},
+    {brand_id:8,type:'Other',model:'CAF-S8000',watt:2200},
+    {brand_id:12,type:'Other',model:'EAF-K9029D',watt:2200},
+    {brand_id:13,type:'Other',model:'E9AF1-980P',watt:2200},
+    {brand_id:6,type:'Other',model:'FRL7000B',watt:2000},
+    {brand_id:17,type:'Other',model:'H34MOMS9H',watt:1000},
+    {brand_id:48,type:'Other',model:'ER-YD8000',watt:2000},
+    {brand_id:14,type:'Other',model:'FAF70L',watt:2200},
+    {brand_id:31,type:'Other',model:'MO-70RC',watt:2200},
+    {brand_id:39,type:'Other',model:'AF-70',watt:2200},
+    {brand_id:32,type:'Other',model:'Air Fryer 10L',watt:2200},
+    {brand_id:37,type:'Other',model:'HD9950/01',watt:2000},
+    {brand_id:35,type:'Other',model:'NN-GT99LS',watt:1000},
+    {brand_id:40,type:'Other',model:'MS40A3010AK',watt:1000},
+    {brand_id:23,type:'Other',model:'MS2535GIS',watt:1000},
+    {brand_id:41,type:'Other',model:'R-25AM',watt:1200},
+    {brand_id:28,type:'Other',model:'MO-60RH',watt:2200},
+    {brand_id:45,type:'Other',model:'OF720E',watt:2400},
+    {brand_id:49,type:'Other',model:'Smart Oven Max',watt:2200},
+    {brand_id:36,type:'Other',model:'PEO-9000',watt:2500},
+    {brand_id:8,type:'Other',model:'CEO-E902',watt:2500},
+    {brand_id:12,type:'Other',model:'EOV-EL120D',watt:2600},
+    {brand_id:13,type:'Other',model:'KOFGH60TX',watt:3000},
+    {brand_id:6,type:'Other',model:'BBIS17400XM',watt:2800},
+    {brand_id:17,type:'Other',model:'H30MOBS11',watt:1000},
+    {brand_id:48,type:'Other',model:'ER-VD90',watt:2000},
+    {brand_id:14,type:'Other',model:'FMC40DG',watt:1200},
+    {brand_id:31,type:'Other',model:'MMO-40L',watt:1200},
+    {brand_id:39,type:'Other',model:'OV-140',watt:2600},
+    {brand_id:32,type:'Other',model:'Oven 70L',watt:2500},
+    {brand_id:37,type:'Other',model:'HD9285/93',watt:2000},
+    {brand_id:35,type:'Other',model:'NN-ST98JS',watt:1000},
+    {brand_id:40,type:'Other',model:'MG40A3010AT',watt:1500},
+    {brand_id:23,type:'Other',model:'MS4296OBS',watt:1200},
+    {brand_id:41,type:'Other',model:'R-30A0',watt:1200},
+    {brand_id:28,type:'Other',model:'MC65J',watt:2000},
+    {brand_id:45,type:'Other',model:'EY801B',watt:1800},
+    {brand_id:49,type:'Other',model:'Microwave 30L',watt:1200},
+    {brand_id:36,type:'Other',model:'PMW-3000',watt:1000},
+    {brand_id:8,type:'Other',model:'CMO-E401',watt:1000},
+  ];
+
+  function localBrandsForType(type){
+    const ids = [...new Set(CATALOG.filter(r=>r.type===type).map(r=>r.brand_id))];
+    return ids.map(id=>({brand_id:id, brand_name:BRANDS[id]})).sort((a,b)=>a.brand_name.localeCompare(b.brand_name));
+  }
+  function localModelsForBrand(type, brandId){
+    return CATALOG.filter(r=>r.type===type && r.brand_id===brandId)
+      .map(r=>({model_name:r.model, wattage_w:r.watt}))
+      .sort((a,b)=>a.model_name.localeCompare(b.model_name));
+  }
+  async function apiFetch(path){
+    if(!API_BASE) return null;
+    try{
+      const res = await fetch(API_BASE + path, {signal: AbortSignal.timeout(5000)});
+      if(!res.ok) return null;
+      return await res.json();
+    }catch(e){ return null; }
+  }
+  async function fetchBrands(type){
+    const remote = await apiFetch('/catalog?resource=brands&type=' + encodeURIComponent(type));
+    return remote || localBrandsForType(type);
+  }
+  async function fetchModels(type, brandId){
+    const remote = await apiFetch('/catalog?resource=models&type=' + encodeURIComponent(type) + '&brand_id=' + brandId);
+    return remote || localModelsForBrand(type, brandId);
+  }
+
+  // ============================================================
+  // TYPE PRESETS + TARIFF LOGIC
+  // ============================================================
+  const TYPE_PRESETS = {
+    "Air Conditioner":   { watt: 750,  threshold: 6,   usageTime: "peak",   icon: "AC" },
+    "Fan":               { watt: 55,   threshold: 10,  usageTime: "peak",   icon: "FN" },
+    "Refrigerator":      { watt: 150,  threshold: 24,  usageTime: "allday", icon: "FR" },
+    "Water Heater":      { watt: 1200, threshold: 1.5, usageTime: "peak",   icon: "WH" },
+    "Washing Machine":   { watt: 500,  threshold: 1,   usageTime: "day",    icon: "WM" },
+    "Laptop / Computer": { watt: 65,   threshold: 8,   usageTime: "day",    icon: "LT" },
+    "Rice Cooker":       { watt: 400,  threshold: 2,   usageTime: "day",    icon: "RC" },
+    "Electric Kettle":   { watt: 1500, threshold: 0.5, usageTime: "day",    icon: "EK" },
+    "Lighting (LED)":    { watt: 10,   threshold: 8,   usageTime: "night",  icon: "LD" },
+    "Television":        { watt: 100,  threshold: 5,   usageTime: "peak",   icon: "TV" },
+    "WiFi Router":        { watt: 10,   threshold: 24,  usageTime: "allday", icon: "WR" },
+    "Other":              { watt: 1650, threshold: 1,   usageTime: "day",    icon: "OT" }
+  };
+
+  // Fallback defaults — used until loadTariffConfig() fetches the live,
+  // admin-editable values, and again if that fetch ever fails. Keeping
+  // these as real defaults (not zeros) means bill math is never broken,
+  // just possibly a version behind what the admin last set.
+  let TARIFF = {
+    rateLow: 0.4443, rateHigh: 0.5443, rateThresholdKwh: 1500,
+    retailCharge: 10, retailWaiverKwh: 600, minimumBill: 3
+  };
+  let EEI_BANDS = [
+    [0,200,25.00],[201,250,24.00],[251,300,22.50],[301,350,20.00],
+    [351,400,18.00],[401,450,15.00],[451,500,12.00],[501,550,10.00],
+    [551,600,8.00],[601,650,6.00],[651,700,5.00],[701,750,4.00],
+    [751,800,3.00],[801,850,2.00],[851,900,1.00],[901,1000,0.50]
+  ];
+  async function loadTariffConfig(){
+    try{
+      const res = await fetch(API_BASE + '/catalog?resource=tariff');
+      if(!res.ok) return;
+      const data = await res.json();
+      if(data.settings){
+        TARIFF = {
+          rateLow: Number(data.settings.rate_low_sen)/100,
+          rateHigh: Number(data.settings.rate_high_sen)/100,
+          rateThresholdKwh: Number(data.settings.rate_threshold_kwh),
+          retailCharge: Number(data.settings.retail_charge_rm),
+          retailWaiverKwh: Number(data.settings.retail_waiver_kwh),
+          minimumBill: Number(data.settings.minimum_bill_rm)
+        };
+      }
+      if(data.eeiBands && data.eeiBands.length){
+        EEI_BANDS = data.eeiBands.map(b=>[Number(b.min_kwh), Number(b.max_kwh), Number(b.rebate_sen)]);
+      }
+    }catch(e){ /* keep the hardcoded fallback defaults above */ }
+  }
+
+  function round2(n){ return Math.round(n*100)/100; }
+  function applianceKwh(a){ return (a.watt * a.hours) / 1000; }
+  function totalKwh(){ return state.appliances.reduce((s,a)=>s+applianceKwh(a),0); }
+  function peakShare(usageTime){
+    if(usageTime === 'peak') return 1;
+    if(usageTime === 'allday') return 8/24;
+    return 0;
+  }
+  function eeiRate(kwh){
+    for(const [min,max,rate] of EEI_BANDS){ if(kwh>=min && kwh<=max) return rate; }
+    return 0;
+  }
+  function computeBill(kwh){
+    if(kwh <= 0) return { total:0, gross:0, eeiRebate:0, retail:0 };
+    const headlineRate = kwh <= TARIFF.rateThresholdKwh ? TARIFF.rateLow : TARIFF.rateHigh;
+    const gross = kwh * headlineRate;
+    const rebate = kwh * (eeiRate(kwh) / 100);
+    const retail = kwh > TARIFF.retailWaiverKwh ? TARIFF.retailCharge : 0;
+    let total = Math.max(gross - rebate + retail, TARIFF.minimumBill);
+    return { gross: round2(gross), eeiRebate: round2(rebate), retail, total: round2(total) };
+  }
+  // Inverts computeBill via bisection — turns an RM budget into a kWh ceiling.
+  function kwhForBudget(targetRM){
+    if(targetRM <= 3) return 0;
+    let lo=0, hi=2000;
+    for(let i=0;i<40;i++){
+      const mid=(lo+hi)/2;
+      if(computeBill(mid).total <= targetRM) lo=mid; else hi=mid;
+    }
+    return round2(lo);
+  }
+  function fmtRM(n){ return 'RM ' + n.toLocaleString('en-MY', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+
+  // ============================================================
+  // STATE
+  // ============================================================
+  let currentUser = null;
+  let state = {
+    appliances: [],
+    nextId: 1,
+    budgetGoal: 60,
+    editingId: null,
+    chatSelected: new Set(),
+    chatMessages: [],
+    usageHistory: [],
+    sessions: []
+  };
+
+  // ---- Usage Tracker: month helpers ----
+  function monthKey(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'); }
+  function monthLabel(key){
+    const [y,m] = key.split('-').map(Number);
+    const names = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    return names[m-1] + ' ' + y;
+  }
+  function seedHistoryMonth(offsetMonths, hoursMap){
+    const d = new Date(); d.setMonth(d.getMonth() - offsetMonths);
+    const key = monthKey(d);
+    const entries = state.appliances.map(a=>{
+      const h = hoursMap[a.type] != null ? hoursMap[a.type] : a.hours;
+      return { label: a.brand+' '+a.type, hours: h, kwh: round2((a.watt*h)/1000) };
+    });
+    return { month:key, label: monthLabel(key), entries };
+  }
+
+  // ============================================================
+  // USAGE TIMER + LIVE DASHBOARD
+  // Real Start/Stop sessions per appliance, with derived stats.
+  // Persistence is best-effort via localStorage, guarded so a
+  // sandboxed preview (which may block browser storage) never
+  // breaks -- it just falls back to in-memory for that session.
+  // Works with real persistence once deployed on your own site.
+  // ============================================================
+  const SESS_KEY = 'greenpulse_sessions_v1';
+  function loadSessions(){
+    try{ const raw = localStorage.getItem(SESS_KEY); return raw ? JSON.parse(raw) : []; }
+    catch(e){ return []; }
+  }
+  function saveSessions(){
+    try{ localStorage.setItem(SESS_KEY, JSON.stringify(state.sessions)); }catch(e){ /* in-memory only */ }
+  }
+
+  // Demo/offline data — only used when there is no real logged-in
+  // account to load data from (e.g. this file opened standalone, or
+  // /api not deployed). Never used for an authenticated account, even
+  // a brand-new one with zero appliances: see bootstrap() below.
+  function seedDemoData(){
+    state.appliances = [
+      { id: "1", brand: "Panasonic", type: "Air Conditioner", model: "CS-PU9WKH", watt: 750, hours: 120, usageTime: "peak" },
+      { id: "2", brand: "Samsung",   type: "Refrigerator",    model: "RT35K5030S8", watt: 150, hours: 720, usageTime: "allday" },
+      { id: "3", brand: "Dell",      type: "Laptop / Computer", model: "Inspiron 14", watt: 65, hours: 150, usageTime: "day" }
+    ];
+    state.nextId = 4;
+    state.usageHistory = [
+      seedHistoryMonth(2, {'Air Conditioner':100, 'Refrigerator':720, 'Laptop / Computer':140}),
+      seedHistoryMonth(1, {'Air Conditioner':115, 'Refrigerator':720, 'Laptop / Computer':145}),
+    ];
+    state.sessions = loadSessions();
+    if(state.sessions.length === 0){
+      const ac = state.appliances.find(a=>a.type==='Air Conditioner');
+      if(ac){
+        const now = Date.now();
+        state.sessions.push({id:'seed1', applianceId:ac.id, start: now-3*3600000, end: now-1.5*3600000});
+      }
+    }
+  }
+
+  function isRunning(applianceId){ return state.sessions.some(s=>s.applianceId===applianceId && s.end===null); }
+  function openSessionFor(applianceId){ return state.sessions.find(s=>s.applianceId===applianceId && s.end===null); }
+  function sessionEndOrNow(s){ return s.end != null ? s.end : Date.now(); }
+  function overlapMs(aStart,aEnd,bStart,bEnd){ return Math.max(0, Math.min(aEnd,bEnd) - Math.max(aStart,bStart)); }
+  function dayStart(ts){ const d=new Date(ts); d.setHours(0,0,0,0); return d.getTime(); }
+  function kwhForApplianceInRange(a, rangeStart, rangeEnd){
+    let ms = 0;
+    state.sessions.filter(s=>s.applianceId===a.id).forEach(s=>{ ms += overlapMs(s.start, sessionEndOrNow(s), rangeStart, rangeEnd); });
+    return (a.watt * (ms/3600000)) / 1000;
+  }
+  function totalSessionKwh(a){ return kwhForApplianceInRange(a, 0, Date.now()+1); }
+  function fmtDuration(ms){
+    const totalMin = Math.max(0, Math.floor(ms/60000));
+    const h = Math.floor(totalMin/60), m = totalMin%60;
+    return h<=0 ? m+'m' : h+'h '+m+'m';
+  }
+  function fmtClock(ts){
+    const d = new Date(ts); let h = d.getHours(); const m = d.getMinutes();
+    const ampm = h>=12?'pm':'am'; h = h%12; if(h===0) h=12;
+    return h+':'+String(m).padStart(2,'0')+ampm;
+  }
+  function getEffRate(){
+    const kwh = totalKwh(); const bill = computeBill(kwh);
+    return kwh>0 ? bill.total/kwh : 0.4443;
+  }
+
+  window.startTimer = async function(applianceId){
+    if(isRunning(applianceId)) return;
+    if(currentUser){
+      try{
+        const res = await fetch('/api/sessions', {method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body:JSON.stringify({applianceId})});
+        const data = await res.json();
+        if(!res.ok){ alert(data.error || 'Could not start timer.'); return; }
+        state.sessions.push({ id:data.session.id, applianceId, start:data.session.start, end:null });
+      }catch(err){ alert('Network error — could not start timer.'); return; }
+    } else {
+      state.sessions.push({id:'s'+Date.now()+Math.random().toString(36).slice(2,6), applianceId, start:Date.now(), end:null});
+      saveSessions();
+    }
+    ensureTicking(); renderDashboard();
+  };
+  window.stopTimer = async function(applianceId){
+    const s = openSessionFor(applianceId);
+    if(!s) return;
+    if(currentUser){
+      try{
+        const res = await fetch('/api/sessions', {method:'PUT', credentials:'include', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id:s.id})});
+        const data = await res.json();
+        if(!res.ok){ alert(data.error || 'Could not stop timer.'); return; }
+        s.end = data.session.end;
+      }catch(err){ alert('Network error — could not stop timer.'); return; }
+    } else {
+      s.end = Date.now();
+      saveSessions();
+    }
+    renderDashboard();
+  };
+
+  let tickHandle = null;
+  function ensureTicking(){
+    if(tickHandle) return;
+    tickHandle = setInterval(()=>{
+      if(state.sessions.some(s=>s.end===null)) renderDashboard();
+      else { clearInterval(tickHandle); tickHandle=null; }
+    }, 1000);
+  }
+
+  function renderDashStats(){
+    const now = Date.now();
+    const effRate = getEffRate();
+    const todayStart = dayStart(now);
+    const weekStart = now - 7*24*60*60*1000;
+    let todayKwh=0, weekKwh=0;
+    state.appliances.forEach(a=>{
+      todayKwh += kwhForApplianceInRange(a, todayStart, now+1);
+      weekKwh += kwhForApplianceInRange(a, weekStart, now+1);
+    });
+    document.getElementById('dashToday').textContent = fmtRM(round2(todayKwh*effRate));
+    document.getElementById('dashWeek').textContent = fmtRM(round2(weekKwh*effRate));
+
+    const daysWithData = new Set(state.sessions.map(s=>dayStart(s.start))).size;
+    let forecastRM;
+    if(daysWithData >= 3){
+      const totalAllKwh = state.appliances.reduce((sum,a)=>sum+totalSessionKwh(a),0);
+      const firstDay = Math.min(...state.sessions.map(s=>dayStart(s.start)));
+      const observedDays = Math.max(1, Math.round((todayStart-firstDay)/86400000)+1);
+      forecastRM = round2(((totalAllKwh*effRate)/observedDays) * 30);
+    } else {
+      forecastRM = computeBill(totalKwh()).total;
+    }
+    document.getElementById('dashForecast').textContent = fmtRM(forecastRM);
+
+    const d = new Date();
+    const daysInMonth = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+    const daysLeft = Math.max(1, daysInMonth - d.getDate() + 1);
+    const monthStart = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+    let monthKwh = 0;
+    state.appliances.forEach(a=>{ monthKwh += kwhForApplianceInRange(a, monthStart, now+1); });
+    const spentThisMonth = round2(monthKwh*effRate);
+    const remaining = Math.max(0, state.budgetGoal - spentThisMonth);
+    document.getElementById('dashPace').innerHTML = fmtRM(round2(remaining/daysLeft)) + '<small>/day left</small>';
+  }
+
+  function renderRunningAndTimers(){
+    const runningCard = document.getElementById('runningCard');
+    const runningList = document.getElementById('runningList');
+    const active = state.sessions.filter(s=>s.end===null);
+    const effRate = getEffRate();
+    if(active.length===0){ runningCard.style.display='none'; }
+    else {
+      runningCard.style.display='block';
+      runningList.innerHTML = active.map(s=>{
+        const a = state.appliances.find(x=>x.id===s.applianceId);
+        if(!a) return '';
+        const elapsed = Date.now()-s.start;
+        const kwh = (a.watt*(elapsed/3600000))/1000;
+        return `<div class="run-row">
+          <div class="run-dot"></div>
+          <div class="run-info">
+            <div class="nm">${a.brand} ${a.type}</div>
+            <div class="sub">${fmtDuration(elapsed)} · ${fmtRM(round2(kwh*effRate))} so far</div>
+          </div>
+          <div class="timer-btn stop" onclick="stopTimer('${a.id}')">Stop</div>
+        </div>`;
+      }).join('');
+    }
+
+    const timerList = document.getElementById('timerList');
+    if(state.appliances.length===0){
+      timerList.innerHTML = '<div class="empty-note">Register an appliance first, then come back here to start timing it.</div>';
+    } else {
+      timerList.innerHTML = state.appliances.map(a=>{
+        const running = isRunning(a.id);
+        const preset = TYPE_PRESETS[a.type] || TYPE_PRESETS['Other'];
+        const sub = running ? ('Running · '+fmtDuration(Date.now()-openSessionFor(a.id).start)) : 'Off';
+        return `<div class="timer-row">
+          <div class="aicon-wrap">${preset.icon}</div>
+          <div class="timer-info">
+            <div class="nm">${a.brand} ${a.type}</div>
+            <div class="sub">${sub}</div>
+          </div>
+          <div class="timer-btn ${running?'stop':'start'}" onclick="${running?'stopTimer':'startTimer'}('${a.id}')">${running?'Stop':'Start'}</div>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  function renderRanking(){
+    const wrap = document.getElementById('rankList');
+    if(state.appliances.length===0){ wrap.innerHTML = '<div class="empty-note">Register appliances to see ranking.</div>'; return; }
+    const items = state.appliances.map(a=>{
+      const sessKwh = totalSessionKwh(a);
+      const kwh = sessKwh>0 ? sessKwh : applianceKwh(a);
+      return {label:a.brand+' '+a.type, kwh};
+    }).sort((a,b)=>b.kwh-a.kwh);
+    const total = items.reduce((s,i)=>s+i.kwh,0) || 0.0001;
+    wrap.innerHTML = items.map((i,idx)=>{
+      const pct = Math.round((i.kwh/total)*100);
+      return `<div class="rank-row">
+        <div class="rank-num">${idx+1}</div>
+        <div class="rank-body">
+          <div class="rank-top"><span class="nm">${i.label}</span><span class="pct">${pct}%</span></div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%;"></div></div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderWeekGraph(){
+    const wrap = document.getElementById('weekGraph');
+    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const today = new Date();
+    const days = [];
+    for(let i=6;i>=0;i--){
+      const d = new Date(today); d.setDate(d.getDate()-i); d.setHours(0,0,0,0);
+      const start = d.getTime(), end = start+86400000;
+      let kwh = 0;
+      state.appliances.forEach(a=>{ kwh += kwhForApplianceInRange(a, start, Math.min(end, Date.now()+1)); });
+      days.push({label:dayNames[d.getDay()], kwh});
+    }
+    const max = Math.max(...days.map(d=>d.kwh), 0.0001);
+    wrap.innerHTML = days.map(d=>{
+      const h = Math.max(4, Math.round((d.kwh/max)*80));
+      return `<div class="week-bar-wrap"><div class="week-bar" style="height:${h}px;" title="${round2(d.kwh)} kWh"></div><div class="week-bar-label">${d.label}</div></div>`;
+    }).join('');
+  }
+
+  function renderActivity(){
+    const wrap = document.getElementById('activityList');
+    if(state.sessions.length===0){ wrap.innerHTML = '<div class="empty-note">No activity yet — start a timer above.</div>'; return; }
+    const effRate = getEffRate();
+    const sorted = [...state.sessions].sort((a,b)=>b.start-a.start).slice(0,10);
+    wrap.innerHTML = sorted.map(s=>{
+      const a = state.appliances.find(x=>x.id===s.applianceId);
+      const label = a ? (a.brand+' '+a.type) : 'Removed appliance';
+      if(s.end===null){
+        return `<div class="activity-row"><span class="who">${label}</span><span class="when" style="color:var(--teal);">Running · started ${fmtClock(s.start)}</span></div>`;
+      }
+      const dur = s.end-s.start;
+      const kwh = a ? (a.watt*(dur/3600000))/1000 : 0;
+      return `<div class="activity-row"><span class="who">${label}</span><span class="when">${fmtClock(s.start)}–${fmtClock(s.end)} · ${fmtDuration(dur)} · ${fmtRM(round2(kwh*effRate))}</span></div>`;
+    }).join('');
+  }
+
+  function renderDashboard(){
+    renderDashStats();
+    renderRunningAndTimers();
+    renderRanking();
+    renderWeekGraph();
+    renderActivity();
+  }
+  if(state.sessions.some(s=>s.end===null)) ensureTicking();
+
+
+  // ============================================================
+  // REGISTER FORM — cascading Type -> Brand -> Model
+  // ============================================================
+  const typeSelect = document.getElementById('f-type');
+  const brandSelect = document.getElementById('f-brand');
+  const brandManual = document.getElementById('f-brand-manual');
+  const modelSelect = document.getElementById('f-model');
+  const modelManual = document.getElementById('f-model-manual');
+  const wattInput = document.getElementById('f-watt');
+  const hoursInput = document.getElementById('f-hours');
+
+  Object.keys(TYPE_PRESETS).forEach(t=>{
+    const opt = document.createElement('option');
+    opt.value = t; opt.textContent = t;
+    typeSelect.appendChild(opt);
+  });
+
+  async function reloadBrands(){
+    const preset = TYPE_PRESETS[typeSelect.value];
+    if(preset){ wattInput.value = preset.watt; }
+    brandSelect.innerHTML = '<option value="">Loading…</option>';
+    brandSelect.disabled = true;
+    modelSelect.innerHTML = '<option value="">Pick a brand first</option>';
+    modelSelect.disabled = true;
+    modelManual.style.display = 'none';
+    brandManual.style.display = 'none';
+
+    const brands = await fetchBrands(typeSelect.value);
+    brandSelect.innerHTML = '<option value="">Select a brand</option>';
+    brands.forEach(b=>{
+      const opt = document.createElement('option');
+      opt.value = b.brand_id; opt.textContent = b.brand_name;
+      brandSelect.appendChild(opt);
+    });
+    const other = document.createElement('option');
+    other.value = MANUAL; other.textContent = 'Other / not listed';
+    brandSelect.appendChild(other);
+    brandSelect.disabled = false;
+  }
+
+  async function reloadModels(){
+    modelManual.style.display = 'none';
+    if(brandSelect.value === MANUAL){
+      brandManual.style.display = 'block';
+      modelSelect.innerHTML = '<option value="">—</option>';
+      modelSelect.disabled = true;
+      return;
+    }
+    brandManual.style.display = 'none';
+    if(!brandSelect.value){
+      modelSelect.innerHTML = '<option value="">Pick a brand first</option>';
+      modelSelect.disabled = true;
+      return;
+    }
+    modelSelect.innerHTML = '<option value="">Loading…</option>';
+    modelSelect.disabled = true;
+    const models = await fetchModels(typeSelect.value, parseInt(brandSelect.value,10));
+    modelSelect.innerHTML = '<option value="">Select a model</option>';
+    models.forEach(m=>{
+      const opt = document.createElement('option');
+      opt.value = m.model_name; opt.dataset.watt = m.wattage_w;
+      opt.textContent = m.model_name;
+      modelSelect.appendChild(opt);
+    });
+    const other = document.createElement('option');
+    other.value = MANUAL; other.textContent = 'Other / not listed';
+    modelSelect.appendChild(other);
+    modelSelect.disabled = false;
+  }
+
+  typeSelect.addEventListener('change', reloadBrands);
+  brandSelect.addEventListener('change', reloadModels);
+  modelSelect.addEventListener('change', ()=>{
+    if(modelSelect.value === MANUAL){
+      modelManual.style.display = 'block';
+    } else {
+      modelManual.style.display = 'none';
+      const opt = modelSelect.selectedOptions[0];
+      if(opt && opt.dataset.watt) wattInput.value = opt.dataset.watt;
+    }
+  });
+  reloadBrands();
+
+  document.getElementById('applianceForm').addEventListener('submit', async function(e){
+    e.preventDefault();
+    const brandOpt = brandSelect.selectedOptions[0];
+    const brand = brandSelect.value === MANUAL ? brandManual.value.trim()
+      : (brandOpt ? brandOpt.textContent : '');
+    const model = modelSelect.value === MANUAL ? modelManual.value.trim() : modelSelect.value;
+    const type = typeSelect.value;
+    const watt = parseFloat(wattInput.value);
+    const hours = parseFloat(hoursInput.value);
+    const usageTime = (TYPE_PRESETS[type] || TYPE_PRESETS['Other']).usageTime;
+    if(!brand || !watt || !hours) return;
+
+    const payload = {brand, type, model, watt, hours, usageTime};
+    const submitBtn = document.getElementById('formSubmitBtn');
+
+    if(currentUser){
+      submitBtn.disabled = true;
+      try{
+        let res;
+        if(state.editingId){
+          res = await fetch('/api/appliances', {method:'PUT', credentials:'include', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id:state.editingId, ...payload})});
+        } else {
+          res = await fetch('/api/appliances', {method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+        }
+        const data = await res.json();
+        submitBtn.disabled = false;
+        if(!res.ok){ alert(data.error || 'Could not save appliance.'); return; }
+        if(state.editingId){
+          const a = state.appliances.find(x=>x.id===state.editingId);
+          Object.assign(a, data.appliance);
+          state.editingId = null;
+        } else {
+          state.appliances.push(data.appliance);
+        }
+      }catch(err){
+        submitBtn.disabled = false;
+        alert('Network error — could not save appliance.');
+        return;
+      }
+    } else {
+      // Not logged in (offline/local preview) — original local-only behavior
+      if(state.editingId){
+        const a = state.appliances.find(x=>x.id===state.editingId);
+        Object.assign(a, payload);
+        state.editingId = null;
+      } else {
+        state.appliances.push({ id: String(state.nextId++), ...payload });
+      }
+    }
+
+    submitBtn.textContent = 'Add appliance';
+    this.reset();
+    reloadBrands();
+    renderAll();
+  });
+
+  window.editAppliance = function(id){
+    const a = state.appliances.find(x=>x.id===id);
+    if(!a) return;
+    typeSelect.value = a.type;
+    reloadBrands().then(()=>{
+      const match = [...brandSelect.options].find(o=>o.textContent===a.brand);
+      brandSelect.value = match ? match.value : MANUAL;
+      reloadModels().then(()=>{
+        const mMatch = [...modelSelect.options].find(o=>o.value===a.model);
+        modelSelect.value = mMatch ? mMatch.value : MANUAL;
+        if(!mMatch){ modelManual.style.display='block'; modelManual.value = a.model || ''; }
+        wattInput.value = a.watt;
+      });
+    });
+    hoursInput.value = a.hours;
+    state.editingId = id;
+    document.getElementById('formSubmitBtn').textContent = 'Save changes';
+    document.getElementById('applianceForm').scrollIntoView({behavior:'smooth', block:'start'});
+  };
+
+  window.deleteAppliance = async function(id){
+    if(currentUser){
+      try{
+        const res = await fetch('/api/appliances?id='+encodeURIComponent(id), {method:'DELETE', credentials:'include'});
+        if(!res.ok){ alert('Could not delete appliance.'); return; }
+      }catch(err){ alert('Network error — could not delete appliance.'); return; }
+    }
+    state.appliances = state.appliances.filter(x=>x.id!==id);
+    state.sessions = state.sessions.filter(s=>s.applianceId!==id);
+    if(!currentUser) saveSessions();
+    if(state.editingId === id){
+      state.editingId = null;
+      document.getElementById('applianceForm').reset();
+      document.getElementById('formSubmitBtn').textContent = 'Add appliance';
+    }
+    renderAll();
+  };
+
+  // ============================================================
+  // RENDER: LIST / BILL / BUDGET / INSIGHTS  (unchanged logic)
+  // ============================================================
+  function renderApplianceList(){
+    const wrap = document.getElementById('applianceList');
+    document.getElementById('applianceCountBadge').textContent = state.appliances.length;
+    if(state.appliances.length === 0){
+      wrap.innerHTML = '<div class="empty-note">No appliances yet — add your first one above.</div>';
+      return;
+    }
+    wrap.innerHTML = state.appliances.map(a=>{
+      const preset = TYPE_PRESETS[a.type] || TYPE_PRESETS['Other'];
+      const kwh = round2(applianceKwh(a));
+      return `<div class="appliance-item">
+        <div class="aicon-wrap">${preset.icon}</div>
+        <div class="ai-info">
+          <div class="name">${a.brand} ${a.type}</div>
+          <div class="meta">${a.watt}W · ${a.hours}h/mo · ${kwh} kWh</div>
+        </div>
+        <div class="ai-actions">
+          <div class="icon-btn" onclick="editAppliance('${a.id}')">✎</div>
+          <div class="icon-btn del" onclick="deleteAppliance('${a.id}')">✕</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderBill(){
+    const kwh = totalKwh();
+    const bill = computeBill(kwh);
+    document.getElementById('billKwh').innerHTML = round2(kwh) + ' <small>kWh</small>';
+    document.getElementById('billRm').textContent = fmtRM(bill.total);
+    document.getElementById('billDaily').textContent = '≈ ' + round2(kwh/30) + ' kWh / day';
+    document.getElementById('bd-gross').textContent = fmtRM(bill.gross);
+    document.getElementById('bd-eei').textContent = '− ' + fmtRM(bill.eeiRebate);
+    document.getElementById('bd-retail').textContent = bill.retail > 0 ? fmtRM(bill.retail) : 'Waived';
+    document.getElementById('bd-total').textContent = fmtRM(bill.total);
+
+    const costList = document.getElementById('costList');
+    if(state.appliances.length === 0){
+      costList.innerHTML = '<div class="empty-note">Register appliances to see cost breakdown.</div>';
+    } else {
+      const items = state.appliances.map(a=>{
+        const k = applianceKwh(a);
+        const share = kwh > 0 ? k/kwh : 0;
+        return {name: a.brand + ' ' + a.type, cost: bill.total * share, share};
+      }).sort((a,b)=>b.cost-a.cost);
+      const maxShare = Math.max(...items.map(i=>i.share), 0.0001);
+      costList.innerHTML = items.map(i=>`
+        <div class="row">
+          <div class="nm">${i.name}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${(i.share/maxShare*100).toFixed(0)}%;"></div></div>
+          <div class="amt num">${fmtRM(round2(i.cost))}</div>
+        </div>`).join('');
+    }
+    renderPdfMonthOptions();
+    return bill;
+  }
+
+  function renderPdfMonthOptions(){
+    const sel = document.getElementById('pdfMonthSelect');
+    if(!sel) return;
+    const prevVal = sel.value;
+    const months = [...state.usageHistory].sort((a,b)=>b.month.localeCompare(a.month));
+    sel.innerHTML = '<option value="current">Current (' + monthLabel(monthKey(new Date())) + ')</option>' +
+      months.map(h=>`<option value="${h.month}">${h.label}</option>`).join('');
+    if([...sel.options].some(o=>o.value===prevVal)) sel.value = prevVal;
+  }
+
+  window.downloadMonthPDF = function(){
+    if(typeof window.jspdf === 'undefined'){
+      alert('The PDF library failed to load — check your internet connection and try again.');
+      return;
+    }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({unit:'mm', format:'a4'});
+    const monthSel = document.getElementById('pdfMonthSelect').value;
+
+    let label, entries, totalKwhVal, bill;
+    if(monthSel === 'current'){
+      label = 'Current (' + monthLabel(monthKey(new Date())) + ')';
+      entries = state.appliances.map(a=>({label:a.brand+' '+a.type, hours:a.hours, kwh: round2(applianceKwh(a))}));
+      totalKwhVal = totalKwh();
+      bill = computeBill(totalKwhVal);
+    } else {
+      const h = state.usageHistory.find(x=>x.month===monthSel);
+      if(!h){ alert('No data found for that month.'); return; }
+      label = h.label;
+      entries = h.entries;
+      totalKwhVal = entries.reduce((s,e)=>s+e.kwh,0);
+      bill = computeBill(totalKwhVal);
+    }
+
+    const marginX = 18;
+    let y = 20;
+    doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.setTextColor(15,36,56);
+    doc.text('GreenPulse', marginX, y);
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(124,147,163);
+    doc.text('Pulse on energy. Peace on bills.', marginX, y+6);
+
+    y += 18;
+    doc.setDrawColor(228,235,234); doc.line(marginX, y, 192, y);
+    y += 10;
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(15,36,56);
+    doc.text('Usage report — ' + label, marginX, y);
+    y += 6;
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(124,147,163);
+    doc.text('Generated ' + new Date().toLocaleDateString('en-MY',{day:'numeric',month:'long',year:'numeric'}), marginX, y);
+    y += 12;
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(15,36,56);
+    doc.text('Appliance', marginX, y);
+    doc.text('Hours', 118, y);
+    doc.text('kWh', 145, y);
+    doc.text('Est. cost', 168, y);
+    y += 3;
+    doc.setDrawColor(228,235,234); doc.line(marginX, y, 192, y);
+    y += 7;
+
+    doc.setFont('helvetica','normal'); doc.setFontSize(10);
+    if(entries.length === 0){
+      doc.setTextColor(124,147,163);
+      doc.text('No appliances registered for this period.', marginX, y);
+      y += 7;
+    }
+    entries.forEach(e=>{
+      const share = totalKwhVal > 0 ? e.kwh/totalKwhVal : 0;
+      const cost = round2(bill.total * share);
+      doc.setTextColor(15,36,56);
+      doc.text(String(e.label).slice(0,36), marginX, y);
+      doc.text(String(Math.round(e.hours)), 118, y);
+      doc.text(String(round2(e.kwh)), 145, y);
+      doc.text('RM ' + cost.toFixed(2), 168, y);
+      y += 7;
+      if(y > 265){ doc.addPage(); y = 20; }
+    });
+
+    y += 6;
+    doc.setDrawColor(15,36,56); doc.line(marginX, y, 192, y);
+    y += 9;
+    doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(15,36,56);
+    doc.text('Total usage: ' + round2(totalKwhVal) + ' kWh', marginX, y);
+    y += 7;
+    doc.setTextColor(31,184,166);
+    doc.text('Estimated bill: RM ' + bill.total.toFixed(2), marginX, y);
+
+    y += 14;
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(124,147,163);
+    doc.text('Estimate based on TNB Domestic Tariff (Peninsular Malaysia, restructured July 2025).', marginX, y);
+    doc.text('Excludes AFA, SST, and the 1.6% KWTBB levy. Not an official TNB bill.', marginX, y+4.5);
+
+    const fname = 'GreenPulse-' + label.replace(/[^\w\- ]/g,'').replace(/\s+/g,'-') + '.pdf';
+    doc.save(fname);
+  };
+
+  function renderBudget(bill){
+    const goal = state.budgetGoal;
+    const pct = goal > 0 ? (bill.total / goal) * 100 : 0;
+    const clamped = Math.min(pct, 100);
+    const circumference = 2 * Math.PI * 50;
+    const ring = document.getElementById('ringFg');
+    ring.style.strokeDashoffset = circumference * (1 - clamped/100);
+    let color = 'var(--teal)', status = 'On track';
+    if(pct >= 100){ color = 'var(--coral)'; status = 'Over budget'; }
+    else if(pct >= 80){ color = 'var(--amber)'; status = 'Cutting it close'; }
+    ring.style.stroke = color;
+    document.getElementById('ringPct').textContent = Math.round(pct) + '%';
+    const statusEl = document.getElementById('ringStatus');
+    statusEl.textContent = status; statusEl.style.color = color;
+    document.getElementById('ringDetail').textContent = fmtRM(bill.total) + ' of ' + fmtRM(goal);
+  }
+
+  function renderInsights(bill, kwh){
+    const predictText = document.getElementById('predictText');
+    predictText.innerHTML = state.appliances.length === 0
+      ? 'Register appliances to generate a forecast.'
+      : `Based on a 30-day billing cycle, you're on track for <b>${round2(kwh)} kWh</b> and an estimated <b>${fmtRM(bill.total)}</b> this month across ${state.appliances.length} registered appliance${state.appliances.length>1?'s':''}.`;
+
+    const alerts = state.appliances.filter(a=>{
+      const preset = TYPE_PRESETS[a.type] || TYPE_PRESETS['Other'];
+      return (a.hours/30) > preset.threshold;
+    });
+    document.getElementById('alertsWrap').innerHTML = alerts.map(a=>{
+      const preset = TYPE_PRESETS[a.type] || TYPE_PRESETS['Other'];
+      return `<div class="card insight-card alert">
+        <div class="head"><h4>Smart alert</h4><span class="badge warn">Overtime</span></div>
+        <p>Your ${a.brand} ${a.type} is running about <b>${round2(a.hours/30)} hrs/day</b> — above the typical ${preset.threshold} hrs/day for this appliance. Consider cutting back, especially during peak hours.</p>
+      </div>`;
+    }).join('');
+
+    const ALLDAY_TIPS = {
+      'Refrigerator': 'check the door seal, avoid overpacking, and leave a few cm of clearance behind it for airflow — those matter far more than runtime for a fridge.',
+      'WiFi Router': "routers draw very little power already, so there's not much to optimize here — this is one of your smallest costs."
+    };
+    function generateMove(a, effRate){
+      const save1h = round2((a.watt/1000) * 1 * 30 * effRate);
+      if(a.usageTime === 'allday'){
+        const tip = ALLDAY_TIPS[a.type] || 'since it runs continuously, the bigger lever next time is picking a more energy-efficient model rather than cutting hours.';
+        return { badge:'Efficiency tip', text:`Your ${a.brand} ${a.type} runs 24/7 by nature, so cutting its hours isn't realistic. Instead, ${tip}`, save:null };
+      }
+      if(peakShare(a.usageTime) > 0){
+        return { badge:'Suggestion', text:`Your ${a.brand} ${a.type} runs during peak hours (2pm–10pm). Shifting just 1 hour/day to off-peak could save an estimated ${fmtRM(save1h)} this month.`, save:save1h };
+      }
+      return { badge:'Suggestion', text:`Your ${a.brand} ${a.type} already runs off-peak. Trimming just 1 hour/day of use could still save an estimated ${fmtRM(save1h)} this month.`, save:save1h };
+    }
+    const effRate = kwh > 0 ? bill.total / kwh : 0.4443;
+    const movesWrap = document.getElementById('movesWrap');
+    movesWrap.innerHTML = state.appliances.map(a=>{
+      const move = generateMove(a, effRate);
+      return `<div class="card insight-card">
+        <div class="head"><h4>Personalized AI move</h4><span class="badge ok">${move.badge}</span></div>
+        <p>${move.text}</p>
+        ${move.save ? `<div class="save">Potential monthly saving: ${fmtRM(move.save)}</div>` : ''}
+      </div>`;
+    }).join('');
+
+    const touList = document.getElementById('touList');
+    if(state.appliances.length === 0){
+      touList.innerHTML = '<div class="empty-note">Register appliances to see your peak vs off-peak split.</div>';
+    } else {
+      const sorted = [...state.appliances].sort((a,b)=>applianceKwh(b)-applianceKwh(a));
+      touList.innerHTML = sorted.map(a=>{
+        const k = applianceKwh(a);
+        const peakPct = Math.round(peakShare(a.usageTime)*100);
+        return `<div class="tou-row">
+          <div class="top"><span class="nm">${a.brand} ${a.type}</span><span class="kwh num">${round2(k)} kWh</span></div>
+          <div class="tou-bar"><div class="tou-peak" style="width:${peakPct}%;"></div><div class="tou-off" style="width:${100-peakPct}%;"></div></div>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  function renderSnapshot(bill){
+    const kwh = totalKwh();
+    document.getElementById('snapKwh').innerHTML = round2(kwh) + ' <span>kWh</span>';
+    document.getElementById('snapBill').innerHTML = 'RM ' + round2(bill.total) + ' <span></span>';
+    const pct = state.budgetGoal > 0 ? Math.round((bill.total/state.budgetGoal)*100) : 0;
+    document.getElementById('snapBudget').innerHTML = pct + '<span>%</span>';
+  }
+
+  // ============================================================
+  // AI CHAT — rule-based budget allocator (not a wrapped LLM)
+  // ============================================================
+  const MAX_HOURS = 744; // 31 days x 24h, a physical ceiling
+
+  function allocateBudget(appliances, budgetRM){
+    const kwhBudget = kwhForBudget(budgetRM);
+    const fixed = appliances.filter(a=>a.usageTime==='allday');
+    const discretionary = appliances.filter(a=>a.usageTime!=='allday');
+
+    const fixedResults = fixed.map(a=>({
+      label: a.brand+' '+a.type, fixed:true,
+      hours: MAX_HOURS, kwh: round2(applianceKwh({watt:a.watt, hours:MAX_HOURS}))
+    }));
+    const fixedKwh = fixedResults.reduce((s,r)=>s+r.kwh,0);
+    const remaining = kwhBudget - fixedKwh;
+
+    if(discretionary.length === 0){
+      return { ok: remaining>=0, kwhBudget, results: fixedResults,
+        note: remaining<0 ? 'Even your always-on appliances alone exceed this budget — try raising it.' : null };
+    }
+    if(remaining <= 0){
+      return { ok:false, kwhBudget,
+        results:[...fixedResults, ...discretionary.map(a=>({label:a.brand+' '+a.type, fixed:false, hours:0, kwh:0}))],
+        note: 'Your always-on appliances already use up this whole budget — there is nothing left for the rest. Try raising your budget.' };
+    }
+    const share = remaining / discretionary.length;
+    const discResults = discretionary.map(a=>{
+      let hours = Math.min((share*1000)/a.watt, MAX_HOURS);
+      return { label: a.brand+' '+a.type, fixed:false, hours: round2(hours), kwh: round2(applianceKwh({watt:a.watt, hours})) };
+    });
+    return { ok:true, kwhBudget, results:[...fixedResults, ...discResults] };
+  }
+
+  function renderChatChips(){
+    const wrap = document.getElementById('chatChips');
+    const empty = document.getElementById('chatEmpty');
+    const controls = document.getElementById('chatControls');
+    if(state.appliances.length === 0){
+      empty.style.display = 'block'; controls.style.display = 'none';
+      return;
+    }
+    empty.style.display = 'none'; controls.style.display = 'block';
+    wrap.innerHTML = '';
+    state.appliances.forEach(a=>{
+      const chip = document.createElement('div');
+      chip.className = 'chip' + (state.chatSelected.has(a.id) ? ' on' : '');
+      chip.textContent = a.brand + ' ' + a.type;
+      chip.onclick = ()=>{
+        if(state.chatSelected.has(a.id)) state.chatSelected.delete(a.id);
+        else state.chatSelected.add(a.id);
+        renderChatChips();
+      };
+      wrap.appendChild(chip);
+    });
+  }
+
+  function pushChatMessage(from, text){
+    state.chatMessages.push({from, text});
+    const scroll = document.getElementById('chatScroll');
+    const row = document.createElement('div');
+    row.className = 'bubble-row ' + from;
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble ' + from;
+    bubble.textContent = text;
+    row.appendChild(bubble);
+    scroll.appendChild(row);
+    scroll.scrollTop = scroll.scrollHeight;
+  }
+
+  document.getElementById('chatAskBtn').addEventListener('click', ()=>{
+    const budgetRM = parseFloat(document.getElementById('f-chat-budget').value);
+    const chosen = state.appliances.filter(a=>state.chatSelected.has(a.id));
+    if(!budgetRM || chosen.length===0) return;
+
+    pushChatMessage('user', `I want to use ${chosen.map(a=>a.brand+' '+a.type).join(', ')} — keep me under RM${budgetRM}/month.`);
+    const outcome = allocateBudget(chosen, budgetRM);
+    let text;
+    if(!outcome.ok){
+      text = outcome.note || "That budget doesn't leave room for these appliances — try raising it.";
+    } else {
+      const lines = outcome.results.map(r=>
+        r.fixed ? `• ${r.label}: keep running as usual (always-on, ~${Math.round(r.hours)}h)`
+                : `• ${r.label}: up to ${Math.round(r.hours)} hrs/month (~${r.kwh} kWh)`
+      );
+      text = `With a RM${budgetRM} budget (~${outcome.kwhBudget} kWh), here's how I'd split it:\n\n${lines.join('\n')}`;
+      if(outcome.note) text += `\n\n${outcome.note}`;
+    }
+    pushChatMessage('ai', text);
+  });
+
+  function seedChatIntro(){
+    if(state.chatMessages.length > 0) return;
+    pushChatMessage('ai',
+      "Hi! Tell me which of your registered appliances you'd like to use this month and a monthly budget, " +
+      "and I'll work out how many hours/month you can run each one without going over.\n\n" +
+      "This is a rule-based calculator, not a general AI — it inverts your tariff and splits the remaining " +
+      "budget across your chosen appliances, so the numbers are fully explainable.");
+  }
+
+  // ============================================================
+  // USAGE TRACKER
+  // ============================================================
+  async function logCurrentMonth(){
+    const key = monthKey(new Date());
+    const entries = state.appliances.map(a=>({
+      label: a.brand+' '+a.type, hours: a.hours, kwh: round2(applianceKwh(a))
+    }));
+    if(currentUser){
+      try{
+        const res = await fetch('/api/tracker', {method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body:JSON.stringify({month:key, entries})});
+        if(!res.ok){ alert("Could not save this month's log."); return; }
+      }catch(err){ alert("Network error — could not save this month's log."); return; }
+    }
+    const record = { month:key, label: monthLabel(key), entries };
+    const idx = state.usageHistory.findIndex(h=>h.month===key);
+    if(idx>=0) state.usageHistory[idx] = record; else state.usageHistory.push(record);
+    state.usageHistory.sort((a,b)=>a.month.localeCompare(b.month));
+    renderTracker();
+  }
+
+  function renderMonthlyTotals(){
+    const wrap = document.getElementById('monthlyTotals');
+    if(state.usageHistory.length===0){
+      wrap.innerHTML = '<div class="empty-note">No months logged yet.</div>';
+      return;
+    }
+    const totals = state.usageHistory.map(h=>{
+      const kwhSum = h.entries.reduce((s,e)=>s+e.kwh,0);
+      return { label:h.label, kwh: round2(kwhSum), bill: computeBill(kwhSum).total };
+    });
+    const maxKwh = Math.max(...totals.map(t=>t.kwh), 0.0001);
+    wrap.innerHTML = totals.map(t=>`
+      <div class="row">
+        <div class="nm">${t.label}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${(t.kwh/maxKwh*100).toFixed(0)}%;"></div></div>
+        <div class="amt num">${fmtRM(t.bill)}</div>
+      </div>`).join('');
+  }
+
+  function renderTrendCards(){
+    const wrap = document.getElementById('trendCards');
+    if(state.usageHistory.length < 2){
+      wrap.innerHTML = `<div class="card"><p class="empty-note" style="padding:6px 0;">Log at least 2 months to start seeing usage trends and overuse warnings here.</p></div>`;
+      return;
+    }
+    const sorted = [...state.usageHistory].sort((a,b)=>a.month.localeCompare(b.month));
+    const labels = [...new Set(sorted.flatMap(h=>h.entries.map(e=>e.label)))];
+
+    wrap.innerHTML = labels.map(label=>{
+      const series = sorted.map(h=>{
+        const e = h.entries.find(x=>x.label===label);
+        return e ? e.hours : null;
+      }).filter(v=>v!==null);
+      if(series.length < 2) return '';
+      const first = series[0], last = series[series.length-1];
+      const pctChange = first>0 ? Math.round(((last-first)/first)*100) : 0;
+      const trail = series.map(h=>Math.round(h)+'h').join(' → ');
+      let note, badgeClass='ok', cardClass='';
+      if(pctChange >= 8){
+        badgeClass='warn'; cardClass='alert';
+        note = `This has risen ${pctChange}% over ${series.length} logged months. Worth capping before next month's bill grows further — see the Insights tab for a specific move on this appliance.`;
+      } else if(pctChange <= -8){
+        note = `Usage has dropped ${Math.abs(pctChange)}% over ${series.length} logged months — nice work, keep it up.`;
+      } else {
+        note = `Usage has stayed roughly steady over ${series.length} logged months. No action needed here.`;
+      }
+      return `<div class="card insight-card ${cardClass}">
+        <div class="head"><h4>${label}</h4><span class="badge ${badgeClass}">${pctChange>=0?'+':''}${pctChange}%</span></div>
+        <div class="trend-trail">${trail}</div>
+        <p>${note}</p>
+      </div>`;
+    }).join('');
+  }
+
+  function renderTracker(){
+    const key = monthKey(new Date());
+    document.getElementById('trackerMonthLabel').textContent = 'Log ' + monthLabel(key);
+    const already = state.usageHistory.find(h=>h.month===key);
+    document.getElementById('trackerNote').textContent = already
+      ? 'Already logged for this month — logging again updates it with your current appliance hours.'
+      : 'History is kept in this browser tab only for now (resets on reload here in preview). Ask to add persistent storage once this is deployed to your own site.';
+    renderMonthlyTotals();
+    renderTrendCards();
+  }
+  document.getElementById('logMonthBtn').addEventListener('click', logCurrentMonth);
+
+  // ============================================================
+  // MASTER RENDER + TABS
+  // ============================================================
+  function renderAll(){
+    renderApplianceList();
+    const bill = renderBill();
+    const kwh = totalKwh();
+    renderBudget(bill);
+    renderInsights(bill, kwh);
+    renderSnapshot(bill);
+    renderChatChips();
+    renderTracker();
+    renderDashboard();
+  }
+
+  document.getElementById('f-budget').addEventListener('input', function(){
+    state.budgetGoal = parseFloat(this.value) || 0;
+    renderAll();
+  });
+
+  const tabButtons = document.querySelectorAll('nav.tabs button');
+  tabButtons.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      tabButtons.forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+      document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+      document.querySelector('main').scrollTop = 0;
+      if(btn.dataset.tab === 'aichat') seedChatIntro();
+    });
+  });
+
+  // ============================================================
+  // ACCOUNT PANEL — profile, password, login history, delete, logout
+  // ============================================================
+  function renderUserHeader(){
+    const btn = document.getElementById('avatarBtn');
+    if(!currentUser){ btn.classList.remove('show'); return; }
+    btn.textContent = (currentUser.full_name||'?').trim().charAt(0).toUpperCase();
+    btn.classList.add('show');
+    const adminCard = document.getElementById('adminCard');
+    if(adminCard) adminCard.style.display = currentUser.is_admin ? 'block' : 'none';
+  }
+
+  window.openAccountPanel = function(){
+    if(!currentUser) return;
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    document.getElementById('panel-account').classList.add('active');
+    populateAccountPanel();
+  };
+  window.closeAccountPanel = function(){
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    document.getElementById('panel-dashboard').classList.add('active');
+    document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
+    document.querySelector('nav.tabs button[data-tab="dashboard"]').classList.add('active');
+  };
+  window.goToAppliances = function(){
+    closeAccountPanel();
+    document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    document.querySelector('nav.tabs button[data-tab="register"]').classList.add('active');
+    document.getElementById('panel-register').classList.add('active');
+  };
+
+  async function populateAccountPanel(){
+    if(!currentUser) return;
+    document.getElementById('acctAvatar').textContent = (currentUser.full_name||'?').charAt(0).toUpperCase();
+    document.getElementById('acctName').textContent = currentUser.full_name || '';
+    document.getElementById('acctEmail').textContent = currentUser.email || '';
+    document.getElementById('acctSince').textContent = currentUser.created_at
+      ? new Date(currentUser.created_at).toLocaleDateString('en-MY',{month:'short',year:'numeric'}) : '—';
+    document.getElementById('acctScore').textContent = (currentUser.green_score!=null ? currentUser.green_score : '—') + ' / 100';
+    document.getElementById('acctCost').textContent = fmtRM(computeBill(totalKwh()).total);
+
+    document.getElementById('acct-name').value = currentUser.full_name || '';
+    document.getElementById('acct-accom').value = currentUser.accommodation_type || 'Dormitory';
+    document.getElementById('acct-occupants').value = currentUser.occupants || 1;
+    document.getElementById('acct-budget').value = currentUser.monthly_budget != null ? currentUser.monthly_budget : state.budgetGoal;
+    document.getElementById('profileMsg').textContent = '';
+    document.getElementById('passwordMsg').textContent = '';
+
+    const wrap = document.getElementById('loginHistoryList');
+    wrap.innerHTML = '<div class="empty-note">Loading…</div>';
+    try{
+      const res = await fetch('/api/profile?action=history', {credentials:'include'});
+      if(!res.ok) throw new Error();
+      const data = await res.json();
+      if(!data.history || data.history.length===0){
+        wrap.innerHTML = '<div class="empty-note">No login history yet.</div>';
+      } else {
+        wrap.innerHTML = data.history.map(ts=>{
+          const d = new Date(ts);
+          return `<div class="activity-row"><span class="who">Signed in</span><span class="when">${d.toLocaleDateString('en-MY',{day:'numeric',month:'short',year:'numeric'})} · ${fmtClock(d.getTime())}</span></div>`;
+        }).join('');
+      }
+    }catch(e){
+      wrap.innerHTML = '<div class="empty-note">Could not load login history.</div>';
+    }
+  }
+
+  window.saveProfile = async function(){
+    const msg = document.getElementById('profileMsg');
+    msg.textContent = 'Saving…'; msg.style.color = 'var(--cloud)';
+    try{
+      const res = await fetch('/api/profile', {
+        method:'PUT', credentials:'include', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          fullName: document.getElementById('acct-name').value,
+          accommodationType: document.getElementById('acct-accom').value,
+          occupants: parseInt(document.getElementById('acct-occupants').value,10) || null,
+          monthlyBudget: parseFloat(document.getElementById('acct-budget').value) || null
+        })
+      });
+      const data = await res.json();
+      if(!res.ok){ msg.textContent = data.error || 'Could not save changes.'; msg.style.color='var(--coral)'; return; }
+      currentUser = data.user;
+      state.budgetGoal = Number(currentUser.monthly_budget);
+      document.getElementById('f-budget').value = state.budgetGoal;
+      renderAll();
+      populateAccountPanel();
+      msg.textContent = 'Saved.'; msg.style.color='var(--teal)';
+    }catch(e){ msg.textContent='Network error — try again.'; msg.style.color='var(--coral)'; }
+  };
+
+  window.changePassword = async function(){
+    const msg = document.getElementById('passwordMsg');
+    const cur = document.getElementById('acct-curpw').value;
+    const next = document.getElementById('acct-newpw').value;
+    const next2 = document.getElementById('acct-newpw2').value;
+    if(next.length < 8){ msg.textContent='New password must contain at least 8 characters.'; msg.style.color='var(--coral)'; return; }
+    if(next !== next2){ msg.textContent='New passwords do not match.'; msg.style.color='var(--coral)'; return; }
+    msg.textContent = 'Updating…'; msg.style.color='var(--cloud)';
+    try{
+      const res = await fetch('/api/profile', {
+        method:'PUT', credentials:'include', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ action:'password', currentPassword:cur, newPassword:next })
+      });
+      const data = await res.json();
+      if(!res.ok){ msg.textContent = data.error || 'Could not update password.'; msg.style.color='var(--coral)'; return; }
+      msg.textContent = 'Password updated.'; msg.style.color='var(--teal)';
+      document.getElementById('acct-curpw').value='';
+      document.getElementById('acct-newpw').value='';
+      document.getElementById('acct-newpw2').value='';
+    }catch(e){ msg.textContent='Network error — try again.'; msg.style.color='var(--coral)'; }
+  };
+
+  window.confirmDeleteAccount = function(){
+    if(!confirm('This permanently deletes your account and all data. This cannot be undone. Continue?')) return;
+    if(!confirm('Are you absolutely sure? This is the last confirmation.')) return;
+    (async ()=>{
+      try{
+        const res = await fetch('/api/profile', {method:'DELETE', credentials:'include'});
+        if(res.ok){ window.location.href = 'login.html'; }
+        else { alert('Could not delete account — please try again.'); }
+      }catch(e){ alert('Network error — please try again.'); }
+    })();
+  };
+
+  window.confirmLogout = function(){
+    if(!confirm('Log out of GreenPulse?')) return;
+    (async ()=>{
+      try{ await fetch('/api/auth', {method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'logout'})}); }catch(e){}
+      window.location.href = 'login.html';
+    })();
+  };
+
+  // Bootstrap — determines whether this is a real logged-in account or
+  // an offline/no-backend preview BEFORE rendering anything, so there is
+  // no flash of demo data for real accounts (including brand-new ones,
+  // which must show zero appliances from the very first paint).
+  async function loadUserData(){
+    // A brand-new account has no appliance/session/tracker rows yet, so
+    // all three fetches below correctly come back empty — the dashboard
+    // starts at genuine zero until the user adds their own appliances.
+    const applRes = await fetch('/api/appliances', {credentials:'include'});
+    const sessRes = await fetch('/api/sessions', {credentials:'include'});
+    const trackRes = await fetch('/api/tracker', {credentials:'include'});
+    if(applRes.ok){
+      const d = await applRes.json();
+      state.appliances = d.appliances;
+      const maxId = state.appliances.length ? Math.max(...state.appliances.map(a=>Number(a.id)||0)) : 0;
+      state.nextId = maxId + 1;
+    }
+    if(sessRes.ok){
+      const d = await sessRes.json();
+      state.sessions = d.sessions;
+    }
+    if(trackRes.ok){
+      const d = await trackRes.json();
+      state.usageHistory = d.history;
+    }
+    if(state.sessions.some(s=>s.end===null)) ensureTicking();
+  }
+
+  async function bootstrap(){
+    await loadTariffConfig(); // public data — fetch regardless of login state
+    let loadedRealAccount = false;
+    try{
+      const res = await fetch('/api/auth', {credentials:'include'});
+      if(res.status === 401){ window.location.href = 'login.html'; return; }
+      if(res.ok){
+        const data = await res.json();
+        currentUser = data.user;
+        if(currentUser && currentUser.monthly_budget != null){
+          state.budgetGoal = Number(currentUser.monthly_budget);
+          document.getElementById('f-budget').value = state.budgetGoal;
+        }
+        renderUserHeader();
+        await loadUserData();
+        loadedRealAccount = true;
+      }
+      // Any other response (e.g. a 500) falls through to the demo seed
+      // below, same graceful-fallback philosophy as the rest of the app.
+    }catch(e){
+      // /api unreachable entirely — offline, opened as a local file, or
+      // no backend deployed yet. Falls through to the demo seed below.
+    }
+    if(!loadedRealAccount) seedDemoData();
+    renderAll();
+  }
+
+  bootstrap();
+})();
+</script>
+
+</body>
+</html>
